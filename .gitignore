@@ -1,0 +1,15 @@
+.DS_Store
+Thumbs.db
+desktop.ini
+
+node_modules/
+.vscode/
+.idea/
+
+*.log
+.cache/
+dist/
+build/
+
+# Local PDF export artifacts produced during dev / testing
+_last-export.pdf

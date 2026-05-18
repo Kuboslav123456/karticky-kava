@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Generátor kartičiek ku káve</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- pdfmake (vector PDF export with built-in Roboto font; supports Slovak + Czech diacritics) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/pdfmake.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.10/vfs_fonts.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar__left">
+      <h1 class="topbar__title" data-i18n="appTitle">Generátor kartičiek ku káve</h1>
+      <p class="topbar__sub"  data-i18n="appSubtitle">A4 hárok 4×4 — pripravený na strihanie a tlač</p>
+    </div>
+
+    <div class="topbar__right">
+      <div class="lang-switch" role="group" aria-label="Language">
+        <span class="lang-switch__label" data-i18n="languageLabel">Jazyk</span>
+        <button type="button" class="lang-btn" data-lang="sk" aria-pressed="true">SK</button>
+        <button type="button" class="lang-btn" data-lang="cs" aria-pressed="false">CS</button>
+      </div>
+
+      <button type="button" id="reset-all" class="btn btn--ghost" data-i18n="resetAll">Vymazať všetko</button>
+      <button type="button" id="export-pdf" class="btn btn--primary">
+        <span data-i18n="exportPdf">Exportovať PDF</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="app-grid">
+    <!-- ── LEFT: form pane ─────────────────────────────── -->
+    <section class="form-pane" aria-label="Form">
+      <div id="coffee-forms" class="coffee-forms"></div>
+
+      <div class="form-pane__actions">
+        <button type="button" id="add-coffee" class="btn btn--secondary btn--block">
+          <span data-i18n="addCoffee">+ Pridať ďalšiu kávu</span>
+        </button>
+
+        <div class="copies-meter" aria-live="polite">
+          <span class="copies-meter__label" data-i18n="cardsTotal">Spolu kartičiek</span>
+          <span class="copies-meter__value" id="copies-summary">16 / 16</span>
+        </div>
+
+        <p class="autosave-hint" data-i18n="autoSaved">Automaticky uložené</p>
+      </div>
+    </section>
+
+    <!-- ── RIGHT: A4 preview pane ──────────────────────── -->
+    <section class="preview-pane" aria-label="Preview">
+      <div class="a4-wrap">
+        <div class="a4-sheet" id="a4-sheet" aria-label="A4 sheet">
+          <!-- 16 cards injected by app.js -->
+        </div>
+        <!-- Crop marks overlay (visual aid in preview only — PDF gets its own) -->
+        <div class="a4-cropmarks" aria-hidden="true"></div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
