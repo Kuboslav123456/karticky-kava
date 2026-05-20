@@ -278,7 +278,7 @@ function line(x1, y1, x2, y2) {
 function cardLogos(dx = 0, dy = 0) {
   if (!martinusDataUrl) return [];
   const LOGO_BOX = mm(10);     // logo bounding box (square fit)
-  const BOTTOM_PAD = mm(3);    // space between logo and card bottom
+  const BOTTOM_PAD = mm(1);    // space between logo and card bottom (2 mm lower than before)
   const out = [];
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {

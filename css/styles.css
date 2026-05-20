@@ -671,8 +671,9 @@ textarea.field__input {
   position: relative;
   width: 100%;
   height: 100%;
-  /* Sit further from the cut edge for a calmer visual margin. */
-  padding: 6.5mm 5.5mm;
+  /* Side + top padding for a calm visual margin. Bottom padding is 2 mm
+     smaller so the Martinus logo sits closer to the cut edge. */
+  padding: 6.5mm 5.5mm 4.5mm;
   display: flex;
   flex-direction: column;
   overflow: hidden;
