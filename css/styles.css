@@ -1,3 +1,87 @@
+/* ─── Tabac Sans (kartičky) ─────────────────────────────── */
+/* Týmto fontom sa renderujú IBA kartičky. UI (topbar, formulár)
+   zostáva v Cormorant Garamond + Inter. */
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Hair.otf') format('opentype');
+  font-weight: 100; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Hair-Italic.otf') format('opentype');
+  font-weight: 100; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Thin.otf') format('opentype');
+  font-weight: 200; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Thin-Italic.otf') format('opentype');
+  font-weight: 200; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Light.otf') format('opentype');
+  font-weight: 300; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Light-Italic.otf') format('opentype');
+  font-weight: 300; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Regular.otf') format('opentype');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Regular-Italic.otf') format('opentype');
+  font-weight: 400; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Medium.otf') format('opentype');
+  font-weight: 500; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Medium-Italic.otf') format('opentype');
+  font-weight: 500; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Semibold.otf') format('opentype');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Semibold-Italic.otf') format('opentype');
+  font-weight: 600; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Bold.otf') format('opentype');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Bold-Italic.otf') format('opentype');
+  font-weight: 700; font-style: italic; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Black.otf') format('opentype');
+  font-weight: 900; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Tabac Sans';
+  src: url('../assets/fonts/Tabac-Sans-Black-Italic.otf') format('opentype');
+  font-weight: 900; font-style: italic; font-display: swap;
+}
+
 /* ─── Tokens ────────────────────────────────────────────── */
 :root {
   /* Paper / kraft palette */
@@ -24,18 +108,30 @@
   /* Typography */
   --font-serif:   "Cormorant Garamond", "Georgia", "Times New Roman", serif;
   --font-sans:    "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* The cards use this — UI does NOT. */
+  --font-card:    "Tabac Sans", "Inter", system-ui, sans-serif;
 
-  /* Print size: A4 ÷ 4×4 (no outer margin, no gutter) */
-  --card-w-mm: 52.5mm;
-  --card-h-mm: 74.25mm;
+  /* Card size — 47 × 67 mm, true-size (no Chrome-shrink compensation).
+     The document now uses a real 5 mm @page margin so the printer never
+     needs to auto-shrink the content; what's in the code is what prints.
+     Layout on A4:
+        @page margin     : 5 mm safe area (white border for printer)
+        Kraft sheet      : 200 × 287 mm (= A4 minus 5 mm margins)
+        Card grid (4×4)  : 4×47 = 188 mm wide, 4×67 = 268 mm tall
+        Kraft border     : (200-188)/2 = 6 mm horizontal,
+                           (287-268)/2 = 9.5 mm vertical
+        On A4, first card starts at (5+6, 5+9.5) = (11, 14.5) mm. */
+  --card-w-mm: 47mm;
+  --card-h-mm: 67mm;
+  --sheet-margin-x: 6mm;     /* kraft border around the card grid */
+  --sheet-margin-y: 9.5mm;
 
   /* Preview scale: how big A4 should look on screen.
-     1 = real print size (~795×1123 px). Fluid: smaller on narrow, larger on wide. */
-  --preview-scale: 0.55;
+     1 = real print size (~795×1123 px).
+     The actual value is set dynamically by app.js based on the preview-pane width
+     so the A4 fills the available space. The CSS default is a safe fallback. */
+  --preview-scale: 0.85;
 }
-@media (max-width: 1100px) { :root { --preview-scale: 0.48; } }
-@media (max-width: 780px)  { :root { --preview-scale: 0.40; } }
-@media (max-width: 560px)  { :root { --preview-scale: 0.34; } }
 
 * { box-sizing: border-box; }
 
@@ -189,6 +285,24 @@ input, textarea, select { font: inherit; color: inherit; }
 .btn--icon svg { width: 16px; height: 16px; }
 
 .btn--block { width: 100%; justify-content: center; }
+
+.btn--busy {
+  cursor: progress;
+  opacity: 0.7;
+}
+.btn--busy::after {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 6px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .btn--coming-soon::after {
   content: "soon";
@@ -388,205 +502,353 @@ textarea.field__input {
   text-transform: uppercase;
 }
 
+/* ─── Back-side offset calibration ──────────────────────── */
+.back-offset {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.back-offset summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0.2px;
+  outline: none;
+}
+.back-offset[open] summary { margin-bottom: 6px; }
+.back-offset__help {
+  margin: 4px 0 8px;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.back-offset__inputs {
+  display: flex;
+  gap: 8px;
+}
+.back-offset__field {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10.5px;
+  color: var(--label);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.back-offset__field input {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.back-offset__field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(164, 113, 72, 0.15);
+}
+
+/* ─── Preview selector (chips) ──────────────────────────── */
+.preview-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 0 4px;
+}
+.preview-selector__label {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--label);
+  font-weight: 600;
+}
+.preview-selector__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.preview-chip {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.preview-chip:hover { border-color: var(--accent); color: var(--ink); }
+.preview-chip.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #FBF6EC;
+}
+.preview-chip__badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  background: rgba(0,0,0,0.06);
+  border-radius: 999px;
+  padding: 0 6px;
+  line-height: 16px;
+  color: inherit;
+}
+.preview-chip.is-active .preview-chip__badge {
+  background: rgba(255,255,255,0.18);
+}
+
 /* ─── A4 preview pane ───────────────────────────────────── */
 .preview-pane {
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
   padding-top: 4px;
 }
 .a4-wrap {
   position: relative;
-  /* Reserve room for the scaled element */
-  width:  calc(210mm * var(--preview-scale));
-  height: calc(297mm * var(--preview-scale));
+  /* Reserve room for the kraft sheet (200 × 287 mm) scaled to fit. */
+  width:  calc(200mm * var(--preview-scale));
+  height: calc(287mm * var(--preview-scale));
+}
+.a4-wrap__label {
+  position: absolute;
+  top: -22px;
+  left: 0;
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--label);
+  font-weight: 600;
 }
 .a4-sheet {
-  width:  210mm;
-  height: 297mm;
-  background: #FFFFFF;
+  width:  200mm;
+  height: 287mm;
+  background-image: url("../assets/kraft-paper.png");
+  background-size: cover;
+  background-position: center;
+  background-color: var(--paper);
   box-shadow: 0 10px 40px rgba(60,40,20,0.18), 0 1px 4px rgba(0,0,0,0.08);
+  padding: var(--sheet-margin-y) var(--sheet-margin-x);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows:    repeat(4, 1fr);
+  grid-template-columns: repeat(4, var(--card-w-mm));
+  grid-template-rows:    repeat(4, var(--card-h-mm));
   transform: scale(var(--preview-scale));
   transform-origin: top left;
+  position: relative;
 }
 
-/* ─── Card (print size — no scale) ──────────────────────── */
+/* ─── Card (print size — no scale, minimalist template-style) ─── */
 .card {
   width: var(--card-w-mm);
   height: var(--card-h-mm);
   position: relative;
+  /* The card body is transparent so the underlying A4 kraft texture
+     shows through naturally — each card lands on a different patch. */
 }
 
 .card__inner {
   position: relative;
   width: 100%;
   height: 100%;
-  background:
-    radial-gradient(circle at 18% 22%, rgba(120,80,40,0.05) 0 0.4mm, transparent 0.5mm),
-    radial-gradient(circle at 72% 58%, rgba(120,80,40,0.04) 0 0.3mm, transparent 0.5mm),
-    radial-gradient(circle at 38% 81%, rgba(120,80,40,0.05) 0 0.35mm, transparent 0.5mm),
-    radial-gradient(circle at 88% 12%, rgba(120,80,40,0.04) 0 0.3mm, transparent 0.5mm),
-    linear-gradient(180deg, #FCF8EF 0%, var(--paper) 100%);
-  border: 0.2mm solid var(--paper-edge);
-  padding: 5mm 4.5mm 4mm;
+  /* Sit further from the cut edge for a calmer visual margin. */
+  padding: 6.5mm 5.5mm;
   display: flex;
   flex-direction: column;
-  outline: 0.15mm solid rgba(164,113,72,0.18);
-  outline-offset: -1.8mm;
+  overflow: hidden;
+  font-family: var(--font-card);
+  color: var(--ink);
+  /* Base font size — auto-fit JS may override per-card via inline style. */
+  font-size: 13pt;
+  line-height: 1.4;
+}
+/* Back side gets a slightly larger default so the description visibly fills
+   the card; auto-fit shrinks if the user types a long text. */
+.card--desc .card__inner {
+  font-size: 12pt;
+  line-height: 1.4;
+}
+
+/* Page 1 — field rows (left aligned, bold label + colon + value) */
+.card__row {
+  margin: 0;
+  /* font-size inherits from .card__inner so the auto-fit JS can scale
+     the whole card with a single style update. */
+  color: var(--ink);
+  word-break: break-word;
+}
+.card__row + .card__row { margin-top: 0.4em; }
+.card__row b {
+  font-weight: 600; /* Tabac Sans Semibold */
+}
+.card__row span {
+  font-weight: 400;        /* Tabac Sans Regular */
+  font-size: 0.82em;       /* values slightly smaller than labels */
+  vertical-align: baseline;
+}
+.card__row.is-empty span { color: var(--label); opacity: 0.45; }
+
+/* Page 2 — description-only card */
+.card__desc {
+  margin: 0;
+  font-family: var(--font-card);
+  font-weight: 400;
+  /* font-size inherits */
+  color: var(--ink);
+  word-break: break-word;
+  hyphens: auto;
+}
+.card__desc.is-empty { color: var(--label); opacity: 0.45; }
+
+/* Card body holds the text content; footer holds the Martinus logo. The body
+   grows to fill the remaining vertical space so the auto-fit binary search
+   (which measures the body) considers only the area available *above* the
+   logo — the logo never overlaps text regardless of content length. */
+.card__body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
 }
-.card__inner--empty {
+.card__foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 2mm;
+  /* Detach footer from inheriting the auto-fit em-units */
+  font-size: 0;
+}
+.card__logo {
+  height: 5mm;
+  width: auto;
+  max-width: 60%;
+  display: block;
+  opacity: 0.9;
+}
+
+/* Empty/blank card placeholder */
+.card--empty .card__inner {
   background: repeating-linear-gradient(
     45deg,
     transparent 0,
     transparent 4mm,
-    rgba(0,0,0,0.025) 4mm,
-    rgba(0,0,0,0.025) 4.4mm
+    rgba(0,0,0,0.04) 4mm,
+    rgba(0,0,0,0.04) 4.4mm
   );
-  border-color: transparent;
-  outline: none;
 }
 
-/* faint coffee-bean watermark in the middle band */
-.card__inner::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 56%;
-  transform: translate(-50%, -50%) rotate(-22deg);
-  width: 18mm;
-  height: 11mm;
-  background:
-    radial-gradient(ellipse 9mm 5.5mm at 50% 50%, rgba(164,113,72,0.09) 0%, rgba(164,113,72,0.04) 60%, transparent 70%);
-  pointer-events: none;
-}
-.card__inner::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 56%;
-  transform: translate(-50%, -50%) rotate(-22deg);
-  width: 0.25mm;
-  height: 10mm;
-  background: rgba(164,113,72,0.16);
-  border-radius: 1mm;
-  pointer-events: none;
-}
-.card__inner--empty::before,
-.card__inner--empty::after { display: none; }
-
-/* Head */
-.card__head { text-align: center; }
-.card__eyebrow {
-  font-family: var(--font-sans);
-  font-size: 2.2pt;
-  letter-spacing: 0.8pt;
-  text-transform: uppercase;
-  color: var(--label);
-  margin-bottom: 0.8mm;
-}
-.card__title {
-  font-family: var(--font-serif);
-  font-weight: 600;
-  font-size: 11pt;
-  line-height: 1.05;
-  margin: 0;
-  color: var(--ink);
-  letter-spacing: 0.2pt;
-  /* up to 2 lines, then clamp */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  word-break: break-word;
-  min-height: 1em;
-}
-.card__rule {
-  width: 9mm;
-  height: 0.2mm;
-  background: var(--accent);
-  margin: 1.6mm auto 0;
-  position: relative;
-}
-.card__rule::before,
-.card__rule::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  width: 0.8mm;
-  height: 0.8mm;
-  border: 0.15mm solid var(--accent);
-  background: var(--paper);
-  transform: translateY(-50%) rotate(45deg);
-}
-.card__rule::before { left: -2mm; }
-.card__rule::after  { right: -2mm; }
-
-/* Fields */
-.card__fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.6mm 3mm;
-  margin: 3mm 0 2.5mm;
-}
-.card__field { min-width: 0; }
-.card__field--full { grid-column: 1 / -1; }
-
-.card__field dt {
-  font-family: var(--font-sans);
-  font-size: 2pt;
-  letter-spacing: 0.6pt;
-  text-transform: uppercase;
-  color: var(--label);
-  margin-bottom: 0.3mm;
-}
-.card__field dd {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-weight: 500;
-  font-size: 3.6pt;
-  color: var(--ink);
-  line-height: 1.15;
-  word-break: break-word;
-}
-
-/* Description */
-.card__desc {
-  margin: 0;
-  margin-top: auto;
-  font-family: var(--font-serif);
-  font-style: italic;
-  font-weight: 400;
-  font-size: 3pt;
-  line-height: 1.35;
-  color: var(--ink-soft);
-  text-align: center;
-  border-top: 0.15mm dashed var(--rule);
-  padding-top: 1.6mm;
-  word-break: break-word;
-}
-.card__desc.is-empty { min-height: 1em; opacity: 0.4; }
-
-.card__foot {
-  display: flex;
-  justify-content: center;
-  color: var(--accent);
-  margin-top: 1.2mm;
-  opacity: 0.55;
-}
-.card__foot svg { width: 2mm; height: 2mm; }
-
-/* ─── Crop marks overlay (visual aid only) ──────────────── */
+/* ─── Crop marks overlay — small L-shaped corner ticks ──── */
 .a4-cropmarks {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* Vertical and horizontal thin lines at 25%/50%/75% (=between cards) */
-  background-image:
-    linear-gradient(to right,  transparent 24.9%, rgba(0,0,0,0.18) 24.9%, rgba(0,0,0,0.18) 25.05%, transparent 25.05%, transparent 49.9%, rgba(0,0,0,0.18) 49.9%, rgba(0,0,0,0.18) 50.05%, transparent 50.05%, transparent 74.9%, rgba(0,0,0,0.18) 74.9%, rgba(0,0,0,0.18) 75.05%, transparent 75.05%),
-    linear-gradient(to bottom, transparent 24.9%, rgba(0,0,0,0.18) 24.9%, rgba(0,0,0,0.18) 25.05%, transparent 25.05%, transparent 49.9%, rgba(0,0,0,0.18) 49.9%, rgba(0,0,0,0.18) 50.05%, transparent 50.05%, transparent 74.9%, rgba(0,0,0,0.18) 74.9%, rgba(0,0,0,0.18) 75.05%, transparent 75.05%);
-  mix-blend-mode: multiply;
+}
+.a4-cropmarks svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.a4-cropmarks line {
+  /* Barely-there cutting guide — visible only when you look for it. */
+  stroke: rgba(110, 96, 75, 0.14);
+  stroke-width: 0.06mm;
+  stroke-linecap: square;
+}
+
+/* Crop marks live only on the FRONT sheet — front cuts go through both
+   sides of the paper, so the back doesn't need its own marks (and we
+   avoid any visible misalignment from duplex registration drift). */
+.a4-wrap--back .a4-cropmarks { display: none; }
+
+/* Back-side duplex-printer offset — apply to the live preview too so the
+   user can see the shift before printing. CSS variables are written by
+   app.js (raw mm value; multiplied by the current preview scale here so
+   the visual screen shift matches the logical mm). */
+.a4-wrap--back {
+  transform: translate(
+    calc(var(--back-offset-x, 0mm) * var(--preview-scale, 1)),
+    calc(var(--back-offset-y, 0mm) * var(--preview-scale, 1))
+  );
+}
+
+/* ─── Print (browser native) ────────────────────────────── */
+/* Real 5 mm @page margin means Chrome never auto-shrinks: the printable
+ * area (200 × 287 mm) matches our kraft sheet exactly, so what's coded
+ * is what prints (47 × 67 mm cards stay 47 × 67 mm on paper). */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 5mm;        /* 5 mm white safety border on every side */
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #FFFFFF;
+  }
+  .topbar, .form-pane, .preview-selector, .a4-wrap__label {
+    display: none !important;
+  }
+  .app-grid {
+    display: block;
+    padding: 0;
+    gap: 0;
+  }
+  .preview-pane {
+    display: block;
+    padding: 0;
+    gap: 0;
+  }
+  .a4-wrap {
+    width: 200mm;       /* matches the printable area inside @page margins */
+    height: 287mm;
+    margin: 0;
+    padding: 0;
+    page-break-after: always;
+    break-after: page;
+    position: relative;
+    overflow: hidden;
+  }
+  .a4-wrap:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+  .a4-sheet {
+    width: 200mm;
+    height: 287mm;
+    transform: none !important;
+    box-shadow: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .a4-cropmarks {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Per-printer duplex calibration — shift the back sheet by the user's
+     configured offset. With true @page margins the typical drift should
+     be near zero, but keep the calibration available for fine tuning. */
+  .a4-wrap--back {
+    transform: translate(var(--back-offset-x, 0), var(--back-offset-y, 0));
+  }
 }

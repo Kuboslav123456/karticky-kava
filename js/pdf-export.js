@@ -1,47 +1,138 @@
-// PDF export — vector A4 (210 × 297 mm) sheet of 16 coffee cards (4 × 4)
-// with thin crop marks between cards.
+// PDF export — 2-page vector A4 (210 × 297 mm) sheet of 16 coffee cards (4 × 4).
+// Page 1 (front): the field rows (bold label + colon + value).
+// Page 2 (back):  the description text.
+// Each page uses the same kraft-paper background and corner crop-marks,
+// matching the original Goriffe template aesthetic.
 //
 // Library: pdfmake (loaded as a global from CDN in index.html).
-// Font:    Roboto (pdfmake default; ships with Latin Extended A so all
-//          Slovak/Czech diacritics — š, č, ž, ť, ô, ů, ě, ř — render correctly).
+// Card font: Tabac Sans (embedded into pdfmake's VFS on first export).
 
 import { i18n } from './i18n.js';
 
 // ── Page geometry ────────────────────────────────────────
-// pdfmake works in points (1 pt = 1/72 inch). A4 = 595.28 × 841.89 pt.
 const PT_PER_MM = 72 / 25.4;
 const mm = (v) => v * PT_PER_MM;
 
-const PAGE_W = mm(210);       // 595.276
-const PAGE_H = mm(297);       // 841.890
+const PAGE_W       = mm(210);   // A4 width  595.276 pt
+const PAGE_H       = mm(297);   // A4 height 841.890 pt
+// Cards are TRUE-SIZE — no Chrome-shrink compensation. The document has
+// a real 5 mm @page margin so the printer never needs to auto-shrink, and
+// what's in the code prints at the same physical size on paper.
+const SAFE_MARGIN  = mm(5);     // white border around the kraft sheet
+const SHEET_W      = mm(200);   // = PAGE_W − 2 × SAFE_MARGIN
+const SHEET_H      = mm(287);   // = PAGE_H − 2 × SAFE_MARGIN
+const CARD_W       = mm(47);    // 133.228 pt
+const CARD_H       = mm(67);    // 189.921 pt
+// Card grid is centred inside the kraft sheet.
+const KRAFT_GUTTER_X = mm(6);   // (200 − 4×47) / 2
+const KRAFT_GUTTER_Y = mm(9.5); // (287 − 4×67) / 2
+// Card grid offset from the A4 paper edge:
+const MARGIN_X = SAFE_MARGIN + KRAFT_GUTTER_X;   // 11 mm
+const MARGIN_Y = SAFE_MARGIN + KRAFT_GUTTER_Y;   // 14.5 mm
 
 const COLS = 4;
 const ROWS = 4;
 
-const CARD_W = PAGE_W / COLS; // 148.819
-const CARD_H = PAGE_H / ROWS; // 210.472
+const INK     = '#2A1C12';
+const CROP    = '#DCD5C8';     // very faint warm gray — barely-there cutting guide
+const TICK_MM = 3;             // length of each crop-mark tick
 
-// Visual tokens (must roughly match css/styles.css)
-const INK         = '#2A1C12';
-const INK_SOFT    = '#6B5642';
-const LABEL       = '#9A816A';
-const ACCENT      = '#A47148';
-const PAPER       = '#FBF6EC';
-const CROP        = '#B7A685';
+// ── Tabac Sans + kraft background — VFS registration ────
+const TABAC_FILES = {
+  'TabacSans-Light.otf':         'assets/fonts/Tabac-Sans-Light.otf',
+  'TabacSans-LightItalic.otf':   'assets/fonts/Tabac-Sans-Light-Italic.otf',
+  'TabacSans-Regular.otf':       'assets/fonts/Tabac-Sans-Regular.otf',
+  'TabacSans-RegularItalic.otf': 'assets/fonts/Tabac-Sans-Regular-Italic.otf',
+  'TabacSans-Medium.otf':        'assets/fonts/Tabac-Sans-Medium.otf',
+  'TabacSans-MediumItalic.otf':  'assets/fonts/Tabac-Sans-Medium-Italic.otf',
+  'TabacSans-Semibold.otf':      'assets/fonts/Tabac-Sans-Semibold.otf',
+  'TabacSans-SemiboldItalic.otf':'assets/fonts/Tabac-Sans-Semibold-Italic.otf',
+};
+
+let assetsRegistered = false;
+let kraftDataUrl = null;
+let martinusDataUrl = null;
+
+async function ensureAssetsRegistered() {
+  if (assetsRegistered) return;
+  if (!window.pdfMake) throw new Error('pdfmake not loaded');
+
+  // Load all OTF files in parallel, base64-encode them, write to vfs.
+  const fontEntries = await Promise.all(
+    Object.entries(TABAC_FILES).map(async ([vfsName, url]) => {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`Failed to load font: ${url}`);
+      const buf  = await resp.arrayBuffer();
+      return [vfsName, arrayBufferToBase64(buf)];
+    })
+  );
+  window.pdfMake.vfs = window.pdfMake.vfs || {};
+  for (const [name, b64] of fontEntries) window.pdfMake.vfs[name] = b64;
+
+  // Load kraft paper as data URL (pdfmake accepts data URLs in image fields).
+  const kresp = await fetch('assets/kraft-paper.png');
+  if (!kresp.ok) throw new Error('Failed to load kraft-paper.png');
+  const kbuf = await kresp.arrayBuffer();
+  kraftDataUrl = 'data:image/png;base64,' + arrayBufferToBase64(kbuf);
+
+  // Load Martinus logo (optional — if missing, the card foot simply renders
+  // without it so the rest of the export still works).
+  try {
+    const lresp = await fetch('assets/martinus-logo.png');
+    if (lresp.ok) {
+      const lbuf = await lresp.arrayBuffer();
+      martinusDataUrl = 'data:image/png;base64,' + arrayBufferToBase64(lbuf);
+    }
+  } catch { /* logo is optional */ }
+
+  window.pdfMake.fonts = {
+    ...(window.pdfMake.fonts || {}),
+    TabacBody: {
+      normal:      'TabacSans-Regular.otf',
+      bold:        'TabacSans-Semibold.otf',
+      italics:     'TabacSans-RegularItalic.otf',
+      bolditalics: 'TabacSans-SemiboldItalic.otf',
+    },
+  };
+
+  assetsRegistered = true;
+}
+
+function arrayBufferToBase64(buf) {
+  const bytes = new Uint8Array(buf);
+  const CHUNK = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
 
 // ── Public API ───────────────────────────────────────────
 export function isPdfExportReady() {
   return typeof window !== 'undefined' && !!window.pdfMake;
 }
 
-export async function exportPdf({ cards, lang, t }) {
+// Pre-warm the VFS so the first user-triggered export doesn't have to wait
+// for fonts + kraft + logo fetches. Safe to call multiple times.
+export async function preloadPdfAssets() {
+  if (!isPdfExportReady()) return false;
+  try { await ensureAssetsRegistered(); return true; }
+  catch (e) { console.warn('preloadPdfAssets failed:', e); return false; }
+}
+
+export async function exportPdf({ cards, lang, t, fieldsPt, descPt, backOffsetX, backOffsetY }) {
   if (!isPdfExportReady()) {
     alert('pdfmake sa nepodarilo načítať. Skontroluj pripojenie na internet a obnov stránku.');
     return;
   }
   const filename = buildFilename(cards);
-  const docDef   = buildDocDefinition(cards, t);
   try {
+    await ensureAssetsRegistered();
+    const docDef = buildDocDefinition(cards, t, fieldsPt || [], descPt || [], {
+      x: mm(parseFloat(backOffsetX) || 0),
+      y: mm(parseFloat(backOffsetY) || 0),
+    });
     window.pdfMake.createPdf(docDef).download(filename);
   } catch (e) {
     console.error('PDF export failed:', e);
@@ -50,52 +141,99 @@ export async function exportPdf({ cards, lang, t }) {
 }
 
 // ── docDefinition builder ────────────────────────────────
-function buildDocDefinition(cards, t) {
-  // Background: cream paper + crop marks (drawn as a single canvas covering the page)
-  const background = (currentPage, pageSize) => ({
-    canvas: [
-      {
-        type: 'rect',
-        x: 0, y: 0,
-        w: pageSize.width, h: pageSize.height,
-        color: PAPER,
-        lineWidth: 0,
-      },
-      ...cropLines(),
-    ],
-  });
+// Pass per-card pt sizes (one per slot) so the PDF text size matches the
+// auto-fit result the user sees on screen.
+//
+// pdfmake's text wrapping is subtly different from the browser's (slightly
+// different glyph metrics), so the same font size can wrap onto an extra
+// line in pdfmake and bump the description into the Martinus logo at the
+// bottom. Two separate safety factors are applied so each side reserves
+// enough room for the logo strip:
+//   - Fields: 6 short rows, rarely overflows → mild safety.
+//   - Description: long flowing text, much more sensitive → stronger safety.
+const PDF_FIT_SAFETY_FIELDS = 0.90;
+const PDF_FIT_SAFETY_DESC   = 0.78;
 
-  // 4 rows × 4 cols, edge-to-edge — use a borderless table for deterministic layout.
-  const body = [];
+function buildDocDefinition(cards, t, fieldsPt, descPt, backOffset = { x: 0, y: 0 }) {
+  // Background: kraft paper (sized to the printable area inside the 5 mm
+  // @page margin) + Martinus logos. Crop marks live ONLY on page 1 (front)
+  // — cuts go through the paper and split both sides at once, so the back
+  // doesn't need its own marks and we avoid duplex-registration drift.
+  // Page 2 can be shifted by the user-set duplex offset for content alignment.
+  const background = (currentPage, pageSize) => {
+    const isBack = currentPage === 2;
+    const dx = isBack ? backOffset.x : 0;
+    const dy = isBack ? backOffset.y : 0;
+    const items = [
+      {
+        image: kraftDataUrl,
+        width:  SHEET_W,
+        height: SHEET_H,
+        absolutePosition: { x: SAFE_MARGIN + dx, y: SAFE_MARGIN + dy },
+      },
+      ...cardLogos(dx, dy),
+    ];
+    if (!isBack) {
+      items.splice(1, 0, { canvas: cropMarks(), absolutePosition: { x: 0, y: 0 } });
+    }
+    return { stack: items };
+  };
+
+  // ── Page 1: fields ────────────────────────────────────
+  const fieldsBody = [];
   for (let r = 0; r < ROWS; r++) {
     const row = [];
     for (let c = 0; c < COLS; c++) {
-      const coffee = cards[r * COLS + c] || null;
-      row.push(coffee ? cardCell(coffee, t) : { text: '' });
+      const idx = r * COLS + c;
+      const coffee = cards[idx] || null;
+      const pt = (fieldsPt[idx] || 11) * PDF_FIT_SAFETY_FIELDS;
+      row.push(coffee ? fieldsCell(coffee, t, pt) : { text: '' });
     }
-    body.push(row);
+    fieldsBody.push(row);
+  }
+
+  // ── Page 2: descriptions ──────────────────────────────
+  const descBody = [];
+  for (let r = 0; r < ROWS; r++) {
+    const row = [];
+    for (let c = 0; c < COLS; c++) {
+      const idx = r * COLS + c;
+      const coffee = cards[idx] || null;
+      const pt = (descPt[idx] || 14) * PDF_FIT_SAFETY_DESC;
+      row.push(coffee ? descCell(coffee, pt) : { text: '' });
+    }
+    descBody.push(row);
   }
 
   return {
     pageSize: { width: PAGE_W, height: PAGE_H },
-    pageMargins: [0, 0, 0, 0],
+    // Page margins position the table inside the 180×260 mm card grid area.
+    pageMargins: [MARGIN_X, MARGIN_Y, MARGIN_X, MARGIN_Y],
     background,
     content: [
+      // Page 1 (front) — standard pageMargins flow.
       {
-        table: {
-          widths:  Array(COLS).fill(CARD_W),
-          heights: Array(ROWS).fill(CARD_H),
-          body,
-        },
+        table: { widths: Array(COLS).fill(CARD_W), heights: Array(ROWS).fill(CARD_H), body: fieldsBody },
         layout: zeroPaddingNoBorders(),
       },
+      // Page 2 (back) — SAME mechanism as page 1 (pageMargins flow) so the
+      // two pages render through identical pdfmake code paths. The duplex
+      // offset is applied via relativePosition (shift from natural position)
+      // instead of absolutePosition (which goes through different layout
+      // code in pdfmake).
+      {
+        table: { widths: Array(COLS).fill(CARD_W), heights: Array(ROWS).fill(CARD_H), body: descBody },
+        layout: zeroPaddingNoBorders(),
+        pageBreak: 'before',
+        relativePosition: { x: backOffset.x, y: backOffset.y },
+      },
     ],
-    defaultStyle: { font: 'Roboto', color: INK },
+    defaultStyle: { font: 'TabacBody', color: INK },
     info: {
       title:    'Karticky ku kave',
       author:   'karticky-kava',
       creator:  'karticky-kava (pdfmake)',
-      subject:  'Coffee origin cards — 16-up A4',
+      subject:  'Coffee origin cards — 16-up A4, double-sided',
     },
   };
 }
@@ -111,140 +249,102 @@ function zeroPaddingNoBorders() {
   };
 }
 
-// ── Crop lines (between rows & columns) ──────────────────
-function cropLines() {
+// ── Crop marks ───────────────────────────────────────────
+// Shared full-length gridlines — 5 vertical (left edge + 3 between cols +
+// right edge) and 5 horizontal (top + 3 between rows + bottom). One cut
+// along each line splits both adjacent cards. The outer left/right verticals
+// make the side trim visible at the boundary between the printed sheet and
+// the printer's white hardware-margin area.
+function cropMarks() {
   const lines = [];
-  for (let i = 1; i < COLS; i++) {
-    const x = i * CARD_W;
-    lines.push({
-      type: 'line',
-      x1: x, y1: 0, x2: x, y2: PAGE_H,
-      lineWidth: 0.3, lineColor: CROP,
-      dash: { length: 2, space: 2 },
-    });
+  for (let c = 0; c <= COLS; c++) {
+    const x = MARGIN_X + c * CARD_W;
+    lines.push(line(x, MARGIN_Y, x, MARGIN_Y + ROWS * CARD_H));
   }
-  for (let i = 1; i < ROWS; i++) {
-    const y = i * CARD_H;
-    lines.push({
-      type: 'line',
-      x1: 0, y1: y, x2: PAGE_W, y2: y,
-      lineWidth: 0.3, lineColor: CROP,
-      dash: { length: 2, space: 2 },
-    });
+  for (let r = 0; r <= ROWS; r++) {
+    const y = MARGIN_Y + r * CARD_H;
+    lines.push(line(MARGIN_X, y, MARGIN_X + COLS * CARD_W, y));
   }
   return lines;
 }
+function line(x1, y1, x2, y2) {
+  return { type: 'line', x1, y1, x2, y2, lineWidth: 0.1, lineColor: CROP };
+}
 
-// ── One card (sits inside a table cell of exactly CARD_W × CARD_H) ─────
-function cardCell(coffee, t) {
-  const PAD_X      = mm(4.5);
-  const PAD_TOP    = mm(5);
-  const innerW     = CARD_W - PAD_X * 2;
-  const colW       = (innerW - mm(3)) / 2;          // two-column field strip
-  const ruleW      = mm(20);
+// Position a small Martinus logo at the bottom-centre of every card.
+// Returns one pdfmake image node per card slot, absolute-positioned. Accepts
+// an optional offset (dx, dy in pt) applied to all logos — used to shift
+// the back page by the duplex calibration amount.
+function cardLogos(dx = 0, dy = 0) {
+  if (!martinusDataUrl) return [];
+  const LOGO_BOX = mm(10);     // logo bounding box (square fit)
+  const BOTTOM_PAD = mm(3);    // space between logo and card bottom
+  const out = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cardLeft = MARGIN_X + c * CARD_W;
+      const cardTop  = MARGIN_Y + r * CARD_H;
+      out.push({
+        image: martinusDataUrl,
+        fit: [LOGO_BOX, LOGO_BOX],
+        absolutePosition: {
+          x: dx + cardLeft + (CARD_W - LOGO_BOX) / 2,
+          y: dy + cardTop + CARD_H - LOGO_BOX - BOTTOM_PAD,
+        },
+        opacity: 0.9,
+      });
+    }
+  }
+  return out;
+}
 
-  // Inner ornamental stroke
-  const decor = {
-    canvas: [
-      {
-        type: 'rect',
-        x: mm(1.8), y: mm(1.8),
-        w: CARD_W - mm(3.6),
-        h: CARD_H - mm(3.6),
-        lineWidth: 0.25,
-        lineColor: 'rgba(164,113,72,0.20)',
-      },
+// ── Page 1 cell — fields ────────────────────────────────
+// Inner padding matches the CSS (6.5 mm top/bottom, 5.5 mm left/right).
+// The typed-in value is rendered at 82 % of the label size — same ratio as
+// the live preview's `.card__row span { font-size: 0.82em }`.
+function fieldsCell(coffee, t, fontSizePt) {
+  const PAD_X = mm(5.5);
+  const PAD_Y = mm(6.5);
+  const VALUE_RATIO = 0.82;
+
+  const row = (key, value) => ({
+    margin: [PAD_X, 0, PAD_X, 0],
+    text: [
+      { text: `${t(key)}: `, bold: true, fontSize: fontSizePt },
+      { text: value || '—',        fontSize: fontSizePt * VALUE_RATIO },
     ],
-    margin: [0, 0, 0, -CARD_H + 0.001], // overlay (next element renders on top)
-  };
+    lineHeight: 1.4,
+  });
 
   return {
     stack: [
-      decor,
-
-      // Spacer above content
-      { text: '', margin: [0, PAD_TOP - mm(1.8), 0, 0] },
-
-      // Eyebrow
-      {
-        text: (t('roastery') || '').toUpperCase(),
-        fontSize: 4.5, color: LABEL, alignment: 'center', characterSpacing: 0.6,
-        margin: [PAD_X, 0, PAD_X, 1.5],
-      },
-      // Title
-      {
-        text: coffee.roastery || '—',
-        fontSize: 14, bold: true, alignment: 'center', lineHeight: 1.05,
-        margin: [PAD_X, 0, PAD_X, 0],
-      },
-      // Decorative rule
-      {
-        margin: [PAD_X, 4, PAD_X, 6],
-        columns: [{
-          width: '*',
-          alignment: 'center',
-          stack: [{
-            canvas: [
-              { type: 'polyline', closePath: true, lineColor: ACCENT, color: PAPER, lineWidth: 0.3,
-                points: [{x:0,y:2.2},{x:1.6,y:0.6},{x:3.2,y:2.2},{x:1.6,y:3.8}] },
-              { type: 'line', x1: 4, y1: 2.2, x2: 4 + ruleW, y2: 2.2, lineWidth: 0.4, lineColor: ACCENT },
-              { type: 'polyline', closePath: true, lineColor: ACCENT, color: PAPER, lineWidth: 0.3,
-                points: [{x:5+ruleW,y:2.2},{x:6.6+ruleW,y:0.6},{x:8.2+ruleW,y:2.2},{x:6.6+ruleW,y:3.8}] },
-            ],
-          }],
-        }],
-      },
-
-      // Two-column fields: country / region
-      {
-        margin: [PAD_X, 0, PAD_X, 4],
-        columns: [
-          { width: colW, stack: fieldStack(t('country'), coffee.country) },
-          { width: mm(3), text: '' },
-          { width: colW, stack: fieldStack(t('region'),  coffee.region) },
-        ],
-      },
-      // process / roast
-      {
-        margin: [PAD_X, 0, PAD_X, 4],
-        columns: [
-          { width: colW, stack: fieldStack(t('process'), coffee.process) },
-          { width: mm(3), text: '' },
-          { width: colW, stack: fieldStack(t('roast'),   coffee.roast) },
-        ],
-      },
-      // Full-width flavor
-      {
-        margin: [PAD_X, 2, PAD_X, 0],
-        stack: fieldStack(t('flavor'), coffee.flavor),
-      },
-
-      // Description (italic) — centered
-      {
-        text: coffee.description || '',
-        italics: true,
-        fontSize: 5.5,
-        color: INK_SOFT,
-        alignment: 'center',
-        lineHeight: 1.35,
-        margin: [PAD_X, 8, PAD_X, 0],
-      },
+      { text: '', margin: [0, PAD_Y, 0, 0] }, // top padding
+      row('roastery', coffee.roastery),
+      row('country',  coffee.country),
+      row('region',   coffee.region),
+      row('process',  coffee.process),
+      row('roast',    coffee.roast),
+      row('flavor',   coffee.flavor),
     ],
   };
 }
 
-function fieldStack(label, value) {
-  return [
-    {
-      text: (label || '').toUpperCase(),
-      fontSize: 4.5, color: LABEL, characterSpacing: 0.5,
-      margin: [0, 0, 0, 0.5],
-    },
-    {
-      text: value || '—',
-      fontSize: 7.5, color: INK, lineHeight: 1.15,
-    },
-  ];
+// ── Page 2 cell — description ───────────────────────────
+function descCell(coffee, fontSizePt) {
+  const PAD_X = mm(5.5);
+  const PAD_Y = mm(6.5);
+
+  return {
+    stack: [
+      { text: '', margin: [0, PAD_Y, 0, 0] },
+      {
+        margin: [PAD_X, 0, PAD_X, 0],
+        text: coffee.description || '—',
+        fontSize: fontSizePt,
+        lineHeight: 1.4,
+      },
+    ],
+  };
 }
 
 // ── Filename ─────────────────────────────────────────────

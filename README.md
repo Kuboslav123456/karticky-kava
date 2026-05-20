@@ -33,6 +33,9 @@ Jednoduchá webová aplikácia na tvorbu A4 hárkov so **16 kartičkami ku káve
 
 Keďže ide o vanilla HTML/JS, stačí ľubovoľný lokálny HTTP server — `file://` blokuje ES moduly v niektorých prehliadačoch.
 
+**0. Windows — dvojklik na `spustit-server.bat`:**
+Spustí Node dev server v tomto priečinku a automaticky otvorí `http://localhost:8765` v prehliadači. Zastavíš zatvorením cmd okna alebo `CTRL+C`.
+
 **1. Node bez balíkov (žiadna inštalácia):**
 
 ```bash

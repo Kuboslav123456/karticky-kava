@@ -28,6 +28,9 @@
       </div>
 
       <button type="button" id="reset-all" class="btn btn--ghost" data-i18n="resetAll">Vymazať všetko</button>
+      <button type="button" id="print-btn" class="btn btn--secondary">
+        <span data-i18n="printBtn">Tlačiť</span>
+      </button>
       <button type="button" id="export-pdf" class="btn btn--primary">
         <span data-i18n="exportPdf">Exportovať PDF</span>
       </button>
@@ -50,17 +53,54 @@
         </div>
 
         <p class="autosave-hint" data-i18n="autoSaved">Automaticky uložené</p>
+
+        <details class="back-offset">
+          <summary data-i18n="backOffsetTitle">Kalibrácia obojstrannej tlače</summary>
+          <p class="back-offset__help" data-i18n="backOffsetHelp">
+            Ak po obojstrannej tlači orezové čiary nelícujú, posuň zadnú stranu o niekoľko mm:
+          </p>
+          <div class="back-offset__inputs">
+            <label class="back-offset__field">
+              <span data-i18n="backOffsetX">Posun X (mm)</span>
+              <input type="number" id="back-offset-x" step="0.1" min="-5" max="5" value="0">
+            </label>
+            <label class="back-offset__field">
+              <span data-i18n="backOffsetY">Posun Y (mm)</span>
+              <input type="number" id="back-offset-y" step="0.1" min="-5" max="5" value="0">
+            </label>
+          </div>
+        </details>
       </div>
     </section>
 
     <!-- ── RIGHT: A4 preview pane ──────────────────────── -->
     <section class="preview-pane" aria-label="Preview">
+      <!-- Coffee selector: choose which coffee appears in preview + export -->
+      <nav class="preview-selector" id="preview-selector" aria-label="Coffee selector">
+        <span class="preview-selector__label" data-i18n="previewLabel">Náhľad</span>
+        <div class="preview-selector__chips" id="preview-chips"></div>
+      </nav>
+
+      <!-- Strana A (predná) — políčka -->
       <div class="a4-wrap">
-        <div class="a4-sheet" id="a4-sheet" aria-label="A4 sheet">
-          <!-- 16 cards injected by app.js -->
+        <span class="a4-wrap__label" data-i18n="frontLabel">Strana A — políčka</span>
+        <div class="a4-sheet" id="a4-sheet-fields" aria-label="Sheet A">
+          <!-- 16 fields cards injected by app.js -->
         </div>
-        <!-- Crop marks overlay (visual aid in preview only — PDF gets its own) -->
-        <div class="a4-cropmarks" aria-hidden="true"></div>
+        <div class="a4-cropmarks" aria-hidden="true">
+          <svg viewBox="0 0 210 297" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+
+      <!-- Strana B (zadná) — popis -->
+      <div class="a4-wrap a4-wrap--back">
+        <span class="a4-wrap__label" data-i18n="backLabel">Strana B — popis</span>
+        <div class="a4-sheet" id="a4-sheet-desc" aria-label="Sheet B">
+          <!-- 16 description cards injected by app.js -->
+        </div>
+        <div class="a4-cropmarks" aria-hidden="true">
+          <svg viewBox="0 0 210 297" preserveAspectRatio="none"></svg>
+        </div>
       </div>
     </section>
   </main>
