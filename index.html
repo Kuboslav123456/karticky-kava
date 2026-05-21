@@ -34,6 +34,14 @@
       <button type="button" id="export-pdf" class="btn btn--primary">
         <span data-i18n="exportPdf">Exportovať PDF</span>
       </button>
+
+      <div class="poster-size" role="group" aria-label="Poster size">
+        <button type="button" class="poster-size__btn" data-poster-size="A4">A4</button>
+        <button type="button" class="poster-size__btn" data-poster-size="A5">A5</button>
+      </div>
+      <button type="button" id="export-poster" class="btn btn--primary">
+        <span data-i18n="exportPoster">Exportovať plagát</span>
+      </button>
     </div>
   </header>
 
@@ -54,22 +62,6 @@
 
         <p class="autosave-hint" data-i18n="autoSaved">Automaticky uložené</p>
 
-        <details class="back-offset">
-          <summary data-i18n="backOffsetTitle">Kalibrácia obojstrannej tlače</summary>
-          <p class="back-offset__help" data-i18n="backOffsetHelp">
-            Ak po obojstrannej tlači orezové čiary nelícujú, posuň zadnú stranu o niekoľko mm:
-          </p>
-          <div class="back-offset__inputs">
-            <label class="back-offset__field">
-              <span data-i18n="backOffsetX">Posun X (mm)</span>
-              <input type="number" id="back-offset-x" step="0.1" min="-5" max="5" value="0">
-            </label>
-            <label class="back-offset__field">
-              <span data-i18n="backOffsetY">Posun Y (mm)</span>
-              <input type="number" id="back-offset-y" step="0.1" min="-5" max="5" value="0">
-            </label>
-          </div>
-        </details>
       </div>
     </section>
 

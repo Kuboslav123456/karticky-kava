@@ -4,6 +4,7 @@
 
 import { i18n, DEFAULT_LANG, LANGS } from './i18n.js';
 import { exportPdf, isPdfExportReady, preloadPdfAssets } from './pdf-export.js';
+import { exportPoster } from './poster-export.js';
 
 // ── Constants ────────────────────────────────────────────
 const STORAGE_KEY = 'karticky-kava-state-v1';
@@ -13,6 +14,7 @@ const CARDS_PER_SHEET = 16;          // 4 × 4 grid on A4
 const blankCoffee = () => ({
   id: cryptoRandomId(),
   roastery:    '',
+  blend:       '',     // "Názov kávy" — used for the poster export
   country:     '',
   region:      '',
   process:     '',
@@ -32,6 +34,7 @@ const state = loadState() ?? {
   previewSelection: 'all',   // 'all' = mixed by copies; otherwise = coffee.id
   backOffsetX: 0,            // mm — duplex printer calibration
   backOffsetY: 0,            // mm
+  posterSize: 'A4',          // 'A4' or 'A5' for poster export
 };
 
 // Sanity-check after a localStorage load: keep schema forward-compatible.
@@ -42,6 +45,7 @@ state.coffees = Array.isArray(state.coffees) && state.coffees.length
 state.previewSelection = state.previewSelection ?? 'all';
 state.backOffsetX = clampOffset(state.backOffsetX);
 state.backOffsetY = clampOffset(state.backOffsetY);
+state.posterSize  = state.posterSize === 'A5' ? 'A5' : 'A4';
 
 function clampOffset(v) {
   const n = parseFloat(v);
@@ -249,6 +253,12 @@ function buildCoffeeForm(coffee, idx) {
   };
 
   addField('roastery');
+  {
+    const blendLabel = addField('blend');     // Názov kávy — viditeľné v plagátovom exporte
+    const hint = el('span', { class: 'field__hint', 'data-i18n': 'blendHint' },
+      t('blendHint'));
+    blendLabel.append(hint);
+  }
   addField('country');
   addField('region');
   addField('process');
@@ -562,21 +572,39 @@ function init() {
     window.print();
   });
 
-  // Back-side offset inputs (per-printer duplex calibration).
-  const offX = document.getElementById('back-offset-x');
-  const offY = document.getElementById('back-offset-y');
-  offX.value = state.backOffsetX;
-  offY.value = state.backOffsetY;
-  const onOffsetChange = () => {
-    state.backOffsetX = clampOffset(offX.value);
-    state.backOffsetY = clampOffset(offY.value);
-    saveState();
-    applyBackOffsetVars();
-  };
-  offX.addEventListener('input',  onOffsetChange);
-  offY.addEventListener('input',  onOffsetChange);
-  offX.addEventListener('change', onOffsetChange);
-  offY.addEventListener('change', onOffsetChange);
+  // Poster export — single-side A4/A5 in the Canva design style.
+  const posterBtn = document.getElementById('export-poster');
+  posterBtn.addEventListener('click', async () => {
+    const label = posterBtn.querySelector('span') || posterBtn;
+    const orig  = label.textContent;
+    posterBtn.disabled = true;
+    posterBtn.classList.add('btn--busy');
+    label.textContent = t('exporting');
+    await new Promise(r => setTimeout(r, 0));
+    try {
+      await exportPoster({
+        coffees: state.coffees,
+        size:    state.posterSize,
+        lang:    state.lang,
+        t,
+      });
+    } finally {
+      posterBtn.disabled = false;
+      posterBtn.classList.remove('btn--busy');
+      label.textContent = orig;
+    }
+  });
+
+  // Poster size toggle (A4 / A5)
+  for (const sb of document.querySelectorAll('.poster-size__btn')) {
+    sb.addEventListener('click', () => {
+      state.posterSize = sb.dataset.posterSize;
+      saveState();
+      updatePosterSizeUI();
+    });
+  }
+  updatePosterSizeUI();
+
   applyBackOffsetVars();
 
   applyLanguage();
@@ -638,6 +666,14 @@ function renderCropMarks() {
       ln.setAttribute('x2', x2); ln.setAttribute('y2', y2);
       svg.appendChild(ln);
     }
+  }
+}
+
+// Refresh the active state of the poster paper-size toggle buttons.
+function updatePosterSizeUI() {
+  for (const sb of document.querySelectorAll('.poster-size__btn')) {
+    sb.classList.toggle('is-active', sb.dataset.posterSize === state.posterSize);
+    sb.setAttribute('aria-pressed', String(sb.dataset.posterSize === state.posterSize));
   }
 }
 

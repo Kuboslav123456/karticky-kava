@@ -28,9 +28,12 @@ export const i18n = {
     backOffsetHelp:  "Ak po obojstrannej tlači orezové čiary nelícujú, posuň zadnú stranu o niekoľko mm:",
     backOffsetX:     "Posun X (mm)",
     backOffsetY:     "Posun Y (mm)",
+    exportPoster:    "Exportovať plagát",
+    posterSubtitle:  "Práve na mlynčeku",
 
     // Card / form field labels
     roastery: "Pražiareň",
+    blend:    "Názov kávy",
     country:  "Krajina",
     region:   "Región",
     process:  "Spracovanie",
@@ -40,6 +43,8 @@ export const i18n = {
 
     // Placeholders
     roasteryPh: "napr. Goriffe",
+    blendPh:    "napr. Juicy Grape",
+    blendHint:  "Len pre plagát, nie pre kartičku",
     countryPh:  "napr. Nikaragua",
     regionPh:   "napr. Jinotega",
     processPh:  "napr. washed",
@@ -76,8 +81,11 @@ export const i18n = {
     backOffsetHelp:  "Pokud po oboustranném tisku ořezové čáry nelícují, posuň zadní stranu o několik mm:",
     backOffsetX:     "Posun X (mm)",
     backOffsetY:     "Posun Y (mm)",
+    exportPoster:    "Exportovat plakát",
+    posterSubtitle:  "Právě na mlýnku",
 
     roastery: "Pražírna",
+    blend:    "Název kávy",
     country:  "Země",
     region:   "Region",
     process:  "Zpracování",
@@ -86,6 +94,8 @@ export const i18n = {
     descLabel:"Popis",
 
     roasteryPh: "např. Goriffe",
+    blendPh:    "např. Juicy Grape",
+    blendHint:  "Jen pro plakát, ne pro kartičku",
     countryPh:  "např. Nikaragua",
     regionPh:   "např. Jinotega",
     processPh:  "např. washed",
