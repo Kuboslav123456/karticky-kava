@@ -21,7 +21,6 @@ const blankCoffee = () => ({
   roast:       '',
   flavor:      '',
   description: '',
-  copies:      CARDS_PER_SHEET,
 });
 
 function cryptoRandomId() {
@@ -74,40 +73,12 @@ function saveState() {
 }
 
 // ── Helpers ──────────────────────────────────────────────
-function clampInt(value, min, max) {
-  const n = parseInt(value, 10);
-  if (!Number.isFinite(n)) return min;
-  return Math.min(max, Math.max(min, n));
-}
-
-function totalCopies() {
-  return state.coffees.reduce((s, c) => s + (clampInt(c.copies, 0, CARDS_PER_SHEET) || 0), 0);
-}
-
-function distributeCopies() {
-  // Spread CARDS_PER_SHEET evenly across coffees; remainder goes to first ones.
-  const n = state.coffees.length;
-  if (!n) return;
-  const base = Math.floor(CARDS_PER_SHEET / n);
-  const rem  = CARDS_PER_SHEET % n;
-  state.coffees.forEach((c, i) => { c.copies = base + (i < rem ? 1 : 0); });
-}
-
 function buildCardList() {
-  // If the user picked one specific coffee, show 16 cards of just that one.
-  if (state.previewSelection && state.previewSelection !== 'all') {
-    const picked = state.coffees.find(c => c.id === state.previewSelection);
-    if (picked) return Array(CARDS_PER_SHEET).fill(picked);
-  }
-  // Default: mix by per-coffee copies count.
-  const out = [];
-  for (const c of state.coffees) {
-    const n = clampInt(c.copies, 0, CARDS_PER_SHEET);
-    for (let i = 0; i < n && out.length < CARDS_PER_SHEET; i++) out.push(c);
-    if (out.length >= CARDS_PER_SHEET) break;
-  }
-  while (out.length < CARDS_PER_SHEET) out.push(null);
-  return out;
+  // Always fill the full sheet (16 cards) with the selected coffee.
+  const picked = state.coffees.find(c => c.id === state.previewSelection)
+    ?? state.coffees.find(c => c.id === state.activeCoffeeId)
+    ?? state.coffees[0];
+  return Array(CARDS_PER_SHEET).fill(picked ?? null);
 }
 
 // Tiny DOM helper
@@ -153,12 +124,9 @@ function applyLanguage() {
 function renderFormPanels() {
   const host = document.getElementById('coffee-forms');
   host.replaceChildren();
-
   state.coffees.forEach((coffee, idx) => {
     host.append(buildCoffeeForm(coffee, idx));
   });
-
-  updateCopiesSummary();
 }
 
 function buildCoffeeForm(coffee, idx) {
@@ -187,25 +155,6 @@ function buildCoffeeForm(coffee, idx) {
     el('span', { class: 'coffee-form__summary' }, summaryText),
   );
 
-  const copiesInput = el('input', {
-    type:      'number',
-    min:       '0',
-    max:       String(CARDS_PER_SHEET),
-    step:      '1',
-    value:     String(coffee.copies),
-    class:     'copies-input',
-    'aria-label': t('copiesLabel'),
-    oninput:   e => {
-      coffee.copies = clampInt(e.target.value, 0, CARDS_PER_SHEET);
-      saveState();
-      updateCopiesSummary();
-      renderPreview();
-    },
-    onblur: e => {
-      // Snap back to clamped value on blur (in case the user typed e.g. "20")
-      e.target.value = String(coffee.copies);
-    },
-  });
 
   const removeBtn = el('button', {
     type:    'button',
@@ -225,7 +174,9 @@ function buildCoffeeForm(coffee, idx) {
       if (state.activeCoffeeId === removedId) {
         state.activeCoffeeId = state.coffees[Math.max(0, i - 1)]?.id ?? state.coffees[0]?.id;
       }
-      distributeCopies();
+      if (state.previewSelection === removedId) {
+        state.previewSelection = state.activeCoffeeId;
+      }
       saveState();
       renderFormPanels();
       renderPreviewSelector();
@@ -236,19 +187,14 @@ function buildCoffeeForm(coffee, idx) {
 
   const headAttrs = { class: 'coffee-form__head' };
   if (!isActive) {
-    headAttrs.role     = 'button';
-    headAttrs.tabindex = '0';
-    headAttrs.onclick  = activateForm;
+    headAttrs.role      = 'button';
+    headAttrs.tabindex  = '0';
+    headAttrs.onclick   = activateForm;
     headAttrs.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateForm(); } };
   }
   const head = el('header', headAttrs,
     headerLeft,
     el('div', { class: 'coffee-form__head-right' },
-      el('label', { class: 'copies-field' },
-        el('span', { class: 'copies-field__label', 'data-i18n': 'copiesLabel' }, t('copiesLabel')),
-        copiesInput,
-        el('span', { class: 'copies-field__suffix', 'data-i18n': 'of16' }, t('of16'))
-      ),
       removeBtn,
       chevron,
     )
@@ -312,14 +258,6 @@ function buildCoffeeForm(coffee, idx) {
   }, head, fields);
 }
 
-function updateCopiesSummary() {
-  const total = totalCopies();
-  const out   = document.getElementById('copies-summary');
-  if (!out) return;
-  out.textContent = `${total} / ${CARDS_PER_SHEET}`;
-  out.classList.toggle('is-over', total > CARDS_PER_SHEET);
-  out.classList.toggle('is-under', total < CARDS_PER_SHEET);
-}
 
 function renderPreview() {
   const sheetA = document.getElementById('a4-sheet-fields');
@@ -545,8 +483,8 @@ function init() {
   document.getElementById('add-coffee').addEventListener('click', () => {
     const newCoffee = blankCoffee();
     state.coffees.push(newCoffee);
-    state.activeCoffeeId = newCoffee.id;   // auto-expand the new form
-    distributeCopies();
+    state.activeCoffeeId   = newCoffee.id;
+    state.previewSelection = newCoffee.id;
     saveState();
     renderFormPanels();
     renderPreviewSelector();

@@ -809,7 +809,10 @@ textarea.field__input {
   /* font-size inherits */
   color: var(--ink);
   word-break: break-word;
+  overflow-wrap: break-word;
   hyphens: auto;
+  white-space: pre-wrap;   /* preserve newlines the user typed in the textarea */
+  text-align: justify;
 }
 .card__desc.is-empty { color: var(--label); opacity: 0.45; }
 
