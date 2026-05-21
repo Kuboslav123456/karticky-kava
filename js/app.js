@@ -503,11 +503,16 @@ function init() {
     renderPreview();
   });
 
-  // Export PDF — reads the per-card font-sizes that the auto-fit settled on
-  // so the PDF matches what the user sees in the preview. Wrapped in a
-  // small async dance so the button can show a "generating" state before
-  // pdfmake's heavy work blocks the main thread.
+  // Export PDF — shows a coffee-selection modal, then generates one PDF per
+  // selected coffee. Reads per-card font-sizes from the DOM after re-rendering
+  // so the PDF matches what the user sees in the preview.
   document.getElementById('export-pdf').addEventListener('click', async () => {
+    const selected = await showSelectionModal({
+      title:        t('exportSelectTitle'),
+      confirmLabel: t('exportPdf'),
+    });
+    if (!selected?.length) return;
+
     const btn = document.getElementById('export-pdf');
     const label = btn.querySelector('span') || btn;
     const originalText = label.textContent;
@@ -515,48 +520,82 @@ function init() {
     label.textContent = t('exporting');
     btn.classList.add('btn--busy');
 
-    // Make sure auto-fit has run with the latest content before snapshotting.
-    if (_autoFitTimer) { clearTimeout(_autoFitTimer); _autoFitTimer = 0; }
-    autoFitCards();
-    const fieldsPt = [...document.querySelectorAll('#a4-sheet-fields .card .card__inner')]
-      .map(el => parseFloat(el.dataset.fitPt) || 11);
-    const descPt = [...document.querySelectorAll('#a4-sheet-desc .card .card__inner')]
-      .map(el => parseFloat(el.dataset.fitPt) || 14);
-
-    // Yield twice to the browser so the disabled / "generating" label
-    // paints before the heavy pdfmake work starts.
-    await new Promise(r => setTimeout(r, 0));
-    await new Promise(r => setTimeout(r, 0));
-
+    const origSelection = state.previewSelection;
     try {
-      await exportPdf({
-        coffees: state.coffees,
-        cards:   buildCardList(),
-        fieldsPt,
-        descPt,
-        lang:    state.lang,
-        t,
-        backOffsetX: state.backOffsetX,
-        backOffsetY: state.backOffsetY,
-      });
+      for (const id of selected) {
+        // Render the preview for this specific coffee so autofit measures it.
+        state.previewSelection = id;
+        renderPreview();
+        if (_autoFitTimer) { clearTimeout(_autoFitTimer); _autoFitTimer = 0; }
+        autoFitCards();
+
+        const fieldsPt = [...document.querySelectorAll('#a4-sheet-fields .card .card__inner')]
+          .map(el => parseFloat(el.dataset.fitPt) || 11);
+        const descPt = [...document.querySelectorAll('#a4-sheet-desc .card .card__inner')]
+          .map(el => parseFloat(el.dataset.fitPt) || 14);
+
+        // Yield twice so the "generating" label paints before pdfmake blocks.
+        await new Promise(r => setTimeout(r, 0));
+        await new Promise(r => setTimeout(r, 0));
+
+        await exportPdf({
+          coffees: state.coffees,
+          cards:   buildCardList(),
+          fieldsPt,
+          descPt,
+          lang:    state.lang,
+          t,
+          backOffsetX: state.backOffsetX,
+          backOffsetY: state.backOffsetY,
+        });
+      }
     } finally {
-      // Restore the button state.
+      // Restore preview and button state.
+      state.previewSelection = origSelection;
+      renderPreview();
+      if (_autoFitTimer) { clearTimeout(_autoFitTimer); _autoFitTimer = 0; }
+      autoFitCards();
       btn.disabled = false;
       btn.classList.remove('btn--busy');
       label.textContent = originalText;
     }
   });
 
-  // Print — uses the browser's native print dialog. Card sizes are
-  // pre-enlarged (52.5 × 72.4167 mm) so that Chrome's auto-shrink to fit
-  // the printer's hardware margins lands them at ~46.7 × 66.8 mm.
-  document.getElementById('print-btn').addEventListener('click', () => {
-    window.print();
+  // Print — shows a coffee-selection modal, then opens the browser print
+  // dialog once per selected coffee (each triggers a separate dialog).
+  document.getElementById('print-btn').addEventListener('click', async () => {
+    const selected = await showSelectionModal({
+      title:        t('printSelectTitle'),
+      confirmLabel: t('printBtn'),
+    });
+    if (!selected?.length) return;
+
+    const origSelection = state.previewSelection;
+    for (const id of selected) {
+      state.previewSelection = id;
+      renderPreview();
+      if (_autoFitTimer) { clearTimeout(_autoFitTimer); _autoFitTimer = 0; }
+      autoFitCards();
+      await new Promise(r => setTimeout(r, 0));
+      window.print();
+    }
+    // Restore preview after printing.
+    state.previewSelection = origSelection;
+    renderPreview();
+    if (_autoFitTimer) { clearTimeout(_autoFitTimer); _autoFitTimer = 0; }
+    autoFitCards();
   });
 
-  // Poster export — single-side A4/A5 in the Canva design style.
+  // Poster export — shows a coffee-selection modal, then generates a poster
+  // PDF with one page per selected coffee.
   const posterBtn = document.getElementById('export-poster');
   posterBtn.addEventListener('click', async () => {
+    const selected = await showSelectionModal({
+      title:        t('posterSelectTitle'),
+      confirmLabel: t('exportPoster'),
+    });
+    if (!selected?.length) return;
+
     const label = posterBtn.querySelector('span') || posterBtn;
     const orig  = label.textContent;
     posterBtn.disabled = true;
@@ -565,7 +604,7 @@ function init() {
     await new Promise(r => setTimeout(r, 0));
     try {
       await exportPoster({
-        coffees: state.coffees,
+        coffees: state.coffees.filter(c => selected.includes(c.id)),
         size:    state.posterSize,
         lang:    state.lang,
         t,
@@ -690,6 +729,71 @@ function setupResponsivePreviewScale() {
     ro.observe(pane);
   }
   window.addEventListener('resize', update);
+}
+
+// ── Coffee selection modal ────────────────────────────────
+// Shows a dialog with one checkbox per coffee (active one pre-checked).
+// Resolves with an array of selected coffee IDs, or null if cancelled.
+function showSelectionModal({ title, confirmLabel }) {
+  return new Promise(resolve => {
+    const close = (result) => { overlay.remove(); resolve(result); };
+
+    // Overlay — click outside to cancel
+    const overlay = el('div', { class: 'sel-modal-overlay',
+      onclick: (e) => { if (e.target === overlay) close(null); },
+      onkeydown: (e) => { if (e.key === 'Escape') close(null); },
+    });
+
+    // Build checkbox rows
+    const checkboxes = [];
+    const listEl = el('div', { class: 'sel-modal__list' });
+    state.coffees.forEach((coffee, idx) => {
+      const cbId  = `_sel_${coffee.id}`;
+      const name  = coffee.roastery || coffee.blend || `${t('coffeeN')} ${idx + 1}`;
+      const cb    = el('input', { type: 'checkbox', id: cbId, value: coffee.id });
+      cb.checked  = coffee.id === state.activeCoffeeId;
+      checkboxes.push(cb);
+      listEl.append(
+        el('label', { class: 'sel-modal__item', for: cbId },
+          cb,
+          el('span', { class: 'sel-modal__num' }, String(idx + 1)),
+          el('span', { class: 'sel-modal__name' }, name),
+        )
+      );
+    });
+
+    // "Všetky / Žiadne" toggle
+    let allChecked = false;
+    const toggleBtn = el('button', { type: 'button', class: 'sel-modal__toggle',
+      onclick: () => {
+        allChecked = !allChecked;
+        checkboxes.forEach(cb => { cb.checked = allChecked; });
+        toggleBtn.textContent = allChecked ? t('selNone') : t('selAll');
+      },
+    }, t('selAll'));
+
+    const dialog = el('div', { class: 'sel-modal', role: 'dialog', 'aria-modal': 'true',
+      tabindex: '-1' },
+      el('div', { class: 'sel-modal__head' },
+        el('h3', { class: 'sel-modal__title' }, title),
+        toggleBtn,
+      ),
+      listEl,
+      el('div', { class: 'sel-modal__foot' },
+        el('button', { type: 'button', class: 'btn btn--ghost',
+          onclick: () => close(null) }, t('cancelBtn')),
+        el('button', { type: 'button', class: 'btn btn--primary',
+          onclick: () => {
+            const ids = checkboxes.filter(c => c.checked).map(c => c.value);
+            close(ids.length ? ids : null);
+          },
+        }, confirmLabel),
+      ),
+    );
+    overlay.append(dialog);
+    document.body.append(overlay);
+    dialog.focus();
+  });
 }
 
 function pollPdfReady() {

@@ -31,6 +31,14 @@ export const i18n = {
     exportPoster:    "Exportovať plagát",
     posterSubtitle:  "Práve na mlynčeku",
 
+    // Selection modal
+    cancelBtn:          "Zrušiť",
+    selAll:             "Všetky",
+    selNone:            "Žiadne",
+    printSelectTitle:   "Vybrať kartičky na tlač",
+    exportSelectTitle:  "Vybrať kartičky na export PDF",
+    posterSelectTitle:  "Vybrať plagáty na export",
+
     // Card / form field labels
     roastery: "Pražiareň",
     blend:    "Názov kávy",
@@ -83,6 +91,14 @@ export const i18n = {
     backOffsetY:     "Posun Y (mm)",
     exportPoster:    "Exportovat plakát",
     posterSubtitle:  "Právě na mlýnku",
+
+    // Selection modal
+    cancelBtn:          "Zrušit",
+    selAll:             "Všechny",
+    selNone:            "Žádné",
+    printSelectTitle:   "Vybrat kartičky k tisku",
+    exportSelectTitle:  "Vybrat kartičky pro export PDF",
+    posterSelectTitle:  "Vybrat plakáty pro export",
 
     roastery: "Pražírna",
     blend:    "Název kávy",
