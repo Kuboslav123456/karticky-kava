@@ -42,7 +42,10 @@ state.lang    = LANGS.includes(state.lang) ? state.lang : DEFAULT_LANG;
 state.coffees = Array.isArray(state.coffees) && state.coffees.length
   ? state.coffees.map(c => ({ ...blankCoffee(), ...c }))
   : [blankCoffee()];
-state.previewSelection = state.previewSelection ?? 'all';
+// If saved selection is 'all' or points to a deleted coffee, fall back to active
+state.previewSelection = state.coffees.find(c => c.id === state.previewSelection)
+  ? state.previewSelection
+  : state.activeCoffeeId ?? state.coffees[0]?.id;
 state.backOffsetX = clampOffset(state.backOffsetX);
 state.backOffsetY = clampOffset(state.backOffsetY);
 state.posterSize  = state.posterSize === 'A5' ? 'A5' : 'A4';
@@ -439,9 +442,6 @@ function renderPreviewSelector() {
     return chip;
   };
 
-  // "Všetky" — mixed by copies
-  host.append(makeChip('all', t('selectAll'), `${Math.min(totalCopies(), CARDS_PER_SHEET)}/${CARDS_PER_SHEET}`));
-
   // One chip per coffee
   state.coffees.forEach((c, idx) => {
     const name = c.roastery ? c.roastery : `${t('coffeeN')} ${idx + 1}`;
@@ -557,8 +557,8 @@ function init() {
   document.getElementById('reset-all').addEventListener('click', () => {
     if (!confirm(t('confirmReset'))) return;
     state.coffees = [blankCoffee()];
-    state.previewSelection = 'all';
     state.activeCoffeeId   = state.coffees[0].id;
+    state.previewSelection = state.coffees[0].id;
     saveState();
     renderFormPanels();
     renderPreviewSelector();
