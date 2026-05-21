@@ -124,82 +124,104 @@ function applyLanguage() {
 function renderFormPanels() {
   const host = document.getElementById('coffee-forms');
   host.replaceChildren();
+
+  // Compact roastery-grouped navigation at the top
+  const nav = el('div', { id: 'roastery-nav', class: 'roastery-nav' });
+  fillRoasteryNav(nav);
+  host.append(nav);
+
+  // Active coffee form (always expanded — selection happens via nav)
+  const activeCoffee = state.coffees.find(c => c.id === state.activeCoffeeId)
+    ?? state.coffees[0];
+  if (activeCoffee) {
+    const activeIdx = state.coffees.indexOf(activeCoffee);
+    host.append(buildCoffeeForm(activeCoffee, activeIdx));
+  }
+}
+
+// Re-render only the nav (called when roastery/blend text changes so we
+// don't lose focus by rebuilding the whole form).
+function renderRoasteryNav() {
+  const nav = document.getElementById('roastery-nav');
+  if (!nav) return;
+  nav.replaceChildren();
+  fillRoasteryNav(nav);
+}
+
+// Populate a roastery-nav element with grouped coffee items.
+function fillRoasteryNav(nav) {
+  // Group coffees by roastery name (empty = unnamed group)
+  const groups = [];
   state.coffees.forEach((coffee, idx) => {
-    host.append(buildCoffeeForm(coffee, idx));
+    const key = (coffee.roastery || '').trim();
+    let group = groups.find(g => g.roastery === key);
+    if (!group) { group = { roastery: key, items: [] }; groups.push(group); }
+    group.items.push({ coffee, idx });
+  });
+
+  const hasNamedGroups = groups.some(g => g.roastery !== '');
+
+  groups.forEach(group => {
+    const groupEl = el('div', { class: 'roastery-nav__group' });
+
+    if (group.roastery) {
+      groupEl.append(el('div', { class: 'roastery-nav__header' }, group.roastery));
+    } else if (hasNamedGroups) {
+      // Unnamed coffees in a mixed list get a neutral label
+      groupEl.append(el('div', { class: 'roastery-nav__header roastery-nav__header--unnamed' },
+        state.lang === 'cs' ? '(bez pražírny)' : '(bez pražiarne)'));
+    }
+
+    group.items.forEach(({ coffee, idx }) => {
+      const isActive  = coffee.id === state.activeCoffeeId;
+      const canDelete = state.coffees.length > 1;
+      const displayName = coffee.blend || `${t('coffeeN')} ${idx + 1}`;
+
+      const itemEl = el('div', {
+        class: `roastery-nav__item${isActive ? ' is-active' : ''}`,
+        onclick: () => {
+          if (state.activeCoffeeId === coffee.id) return;
+          state.activeCoffeeId   = coffee.id;
+          state.previewSelection = coffee.id;
+          saveState();
+          renderFormPanels();
+          renderPreview();
+        },
+      },
+        el('span', { class: 'roastery-nav__dot' }),
+        el('span', { class: 'roastery-nav__item-name' }, displayName),
+        canDelete
+          ? el('button', {
+              type: 'button',
+              class: 'roastery-nav__del',
+              title: t('removeCoffee'),
+              'aria-label': t('removeCoffee'),
+              onclick: (e) => {
+                e.stopPropagation();
+                const i = state.coffees.indexOf(coffee);
+                if (i < 0) return;
+                const removedId = coffee.id;
+                state.coffees.splice(i, 1);
+                if (state.activeCoffeeId === removedId) {
+                  state.activeCoffeeId = state.coffees[Math.max(0, i - 1)]?.id
+                    ?? state.coffees[0]?.id;
+                }
+                state.previewSelection = state.activeCoffeeId;
+                saveState();
+                renderFormPanels();
+                renderPreview();
+              },
+            }, svgIcon('trash'))
+          : null,
+      );
+      groupEl.append(itemEl);
+    });
+
+    nav.append(groupEl);
   });
 }
 
 function buildCoffeeForm(coffee, idx) {
-  const isActive = coffee.id === state.activeCoffeeId;
-
-  // Click on a collapsed form bar → expand it and sync the preview to this coffee
-  const activateForm = () => {
-    if (state.activeCoffeeId === coffee.id) return;
-    state.activeCoffeeId   = coffee.id;
-    state.previewSelection = coffee.id;   // keep preview in sync with active form
-    saveState();
-    renderFormPanels();
-    renderPreviewSelector();
-    renderPreview();
-  };
-
-  // Summary shown in the collapsed bar (roastery, or blend, or empty)
-  const summaryText = coffee.roastery || coffee.blend || '';
-
-  const chevron = svgIcon('chevron');
-  chevron.classList.add('coffee-form__chevron');
-
-  const headerLeft = el('div', { class: 'coffee-form__title' },
-    el('span', { class: 'coffee-form__num' }, String(idx + 1)),
-    el('span', null, t('coffeeN')),
-    el('span', { class: 'coffee-form__summary' }, summaryText),
-  );
-
-
-  const removeBtn = el('button', {
-    type:    'button',
-    class:   'btn btn--ghost btn--icon',
-    'data-i18n-title': 'removeCoffee',
-    title:   t('removeCoffee'),
-    'aria-label': t('removeCoffee'),
-    onclick: (e) => {
-      e.stopPropagation();   // don't trigger header expand when clicking trash
-      const i = state.coffees.indexOf(coffee);
-      if (i < 0) return;
-      const removedId = coffee.id;
-      state.coffees.splice(i, 1);
-      if (state.coffees.length === 0) state.coffees.push(blankCoffee());
-      if (state.previewSelection === removedId) state.previewSelection = 'all';
-      // If the removed coffee was active, activate the nearest remaining one
-      if (state.activeCoffeeId === removedId) {
-        state.activeCoffeeId = state.coffees[Math.max(0, i - 1)]?.id ?? state.coffees[0]?.id;
-      }
-      if (state.previewSelection === removedId) {
-        state.previewSelection = state.activeCoffeeId;
-      }
-      saveState();
-      renderFormPanels();
-      renderPreviewSelector();
-      renderPreview();
-    },
-  }, svgIcon('trash'));
-  if (state.coffees.length <= 1) removeBtn.disabled = true;
-
-  const headAttrs = { class: 'coffee-form__head' };
-  if (!isActive) {
-    headAttrs.role      = 'button';
-    headAttrs.tabindex  = '0';
-    headAttrs.onclick   = activateForm;
-    headAttrs.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateForm(); } };
-  }
-  const head = el('header', headAttrs,
-    headerLeft,
-    el('div', { class: 'coffee-form__head-right' },
-      removeBtn,
-      chevron,
-    )
-  );
-
   const fields = el('div', { class: 'fields' });
 
   const addField = (key, opts = {}) => {
@@ -210,18 +232,18 @@ function buildCoffeeForm(coffee, idx) {
     );
 
     const inputAttrs = {
-      id:                 inputId,
-      class:              'field__input',
-      value:              coffee[key] || '',
-      'data-i18n-ph':     `${key}Ph`,
-      placeholder:        t(`${key}Ph`),
-      autocomplete:       'off',
-      spellcheck:         'false',
+      id:             inputId,
+      class:          'field__input',
+      value:          coffee[key] || '',
+      'data-i18n-ph': `${key}Ph`,
+      placeholder:    t(`${key}Ph`),
+      autocomplete:   'off',
+      spellcheck:     'false',
       oninput: e => {
         coffee[key] = e.target.value;
         saveState();
-        // Keep selector chip label in sync when roastery is edited.
-        if (key === 'roastery') renderPreviewSelector();
+        // Update nav labels without re-rendering the whole form (keeps focus)
+        if (key === 'roastery' || key === 'blend') renderRoasteryNav();
         renderPreview();
       },
     };
@@ -240,10 +262,8 @@ function buildCoffeeForm(coffee, idx) {
 
   addField('roastery');
   {
-    const blendLabel = addField('blend');     // Názov kávy — viditeľné v plagátovom exporte
-    const hint = el('span', { class: 'field__hint', 'data-i18n': 'blendHint' },
-      t('blendHint'));
-    blendLabel.append(hint);
+    const blendLabel = addField('blend');   // Názov kávy — viditeľné v plagátovom exporte
+    blendLabel.append(el('span', { class: 'field__hint', 'data-i18n': 'blendHint' }, t('blendHint')));
   }
   addField('country');
   addField('region');
@@ -253,9 +273,9 @@ function buildCoffeeForm(coffee, idx) {
   addField('description', { textarea: true });
 
   return el('section', {
-    class: `coffee-form${isActive ? '' : ' is-collapsed'}`,
+    class: 'coffee-form',
     'data-coffee-id': coffee.id,
-  }, head, fields);
+  }, fields);
 }
 
 
@@ -352,40 +372,6 @@ function fitFontSize(setterEl, measureEl, minPt, maxPt) {
   return best;
 }
 
-// Render the chips that let the user pick which coffee is shown in the
-// preview (and exported / printed). 'all' is the default (mixed by copies).
-function renderPreviewSelector() {
-  const host = document.getElementById('preview-chips');
-  if (!host) return;
-  host.replaceChildren();
-
-  const makeChip = (id, label, badgeText) => {
-    const chip = el('button', {
-      type: 'button',
-      class: `preview-chip${state.previewSelection === id ? ' is-active' : ''}`,
-      onclick: () => {
-        state.previewSelection = id;
-        saveState();
-        // Refresh chip active states + preview
-        for (const c of host.querySelectorAll('.preview-chip')) {
-          c.classList.toggle('is-active', c.dataset.sel === id);
-        }
-        renderPreview();
-      },
-    },
-      el('span', null, label),
-      badgeText ? el('span', { class: 'preview-chip__badge' }, badgeText) : null,
-    );
-    chip.dataset.sel = id;
-    return chip;
-  };
-
-  // One chip per coffee
-  state.coffees.forEach((c, idx) => {
-    const name = c.roastery ? c.roastery : `${t('coffeeN')} ${idx + 1}`;
-    host.append(makeChip(c.id, name, `${CARDS_PER_SHEET}×`));
-  });
-}
 
 // Page 1 — fields card (left-aligned, bold label + value rows)
 function buildFieldsCard(coffee) {
@@ -474,7 +460,7 @@ function init() {
       state.lang = lang;
       saveState();
       applyLanguage();
-      renderPreviewSelector();
+      renderFormPanels();
       renderPreview();
     });
   }
@@ -487,7 +473,6 @@ function init() {
     state.previewSelection = newCoffee.id;
     saveState();
     renderFormPanels();
-    renderPreviewSelector();
     renderPreview();
   });
 
@@ -499,7 +484,6 @@ function init() {
     state.previewSelection = state.coffees[0].id;
     saveState();
     renderFormPanels();
-    renderPreviewSelector();
     renderPreview();
   });
 
@@ -630,7 +614,6 @@ function init() {
 
   applyLanguage();
   renderFormPanels();
-  renderPreviewSelector();
   renderPreview();
   renderCropMarks();
   setupResponsivePreviewScale();
