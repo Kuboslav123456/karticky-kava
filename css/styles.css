@@ -415,6 +415,59 @@ input, textarea, select { font: inherit; color: inherit; }
   gap: 8px;
 }
 
+/* ── Accordion collapsed state ───────────────────────────── */
+.coffee-form__summary {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--label);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+  display: none;
+}
+.coffee-form__chevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--label);
+  opacity: 0.45;
+  transition: transform 0.18s ease;
+  margin-left: 2px;
+}
+/* When expanded: chevron points down (default). When collapsed: rotates right */
+.coffee-form.is-collapsed .coffee-form__chevron {
+  transform: rotate(-90deg);
+}
+
+.coffee-form.is-collapsed {
+  padding: 0;
+  overflow: hidden;
+}
+.coffee-form.is-collapsed .coffee-form__head {
+  cursor: pointer;
+  margin-bottom: 0;
+  padding: 10px 14px;
+  border-bottom: none;
+  border-radius: 11px;
+  user-select: none;
+  transition: background 0.12s;
+}
+.coffee-form.is-collapsed .coffee-form__head:hover,
+.coffee-form.is-collapsed .coffee-form__head:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+.coffee-form.is-collapsed .coffee-form__summary {
+  display: inline;
+}
+.coffee-form.is-collapsed .copies-field {
+  display: none;
+}
+.coffee-form.is-collapsed .fields {
+  display: none;
+}
+
 /* Copies input */
 .copies-field {
   display: inline-flex;

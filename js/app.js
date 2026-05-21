@@ -46,6 +46,10 @@ state.previewSelection = state.previewSelection ?? 'all';
 state.backOffsetX = clampOffset(state.backOffsetX);
 state.backOffsetY = clampOffset(state.backOffsetY);
 state.posterSize  = state.posterSize === 'A5' ? 'A5' : 'A4';
+// Active (expanded) coffee form — fall back to first coffee if saved id is gone
+state.activeCoffeeId = state.coffees.find(c => c.id === state.activeCoffeeId)
+  ? state.activeCoffeeId
+  : state.coffees[0]?.id;
 
 function clampOffset(v) {
   const n = parseFloat(v);
@@ -155,9 +159,29 @@ function renderFormPanels() {
 }
 
 function buildCoffeeForm(coffee, idx) {
+  const isActive = coffee.id === state.activeCoffeeId;
+
+  // Click on a collapsed form bar → expand it and sync the preview to this coffee
+  const activateForm = () => {
+    if (state.activeCoffeeId === coffee.id) return;
+    state.activeCoffeeId   = coffee.id;
+    state.previewSelection = coffee.id;   // keep preview in sync with active form
+    saveState();
+    renderFormPanels();
+    renderPreviewSelector();
+    renderPreview();
+  };
+
+  // Summary shown in the collapsed bar (roastery, or blend, or empty)
+  const summaryText = coffee.roastery || coffee.blend || '';
+
+  const chevron = svgIcon('chevron');
+  chevron.classList.add('coffee-form__chevron');
+
   const headerLeft = el('div', { class: 'coffee-form__title' },
     el('span', { class: 'coffee-form__num' }, String(idx + 1)),
-    el('span', null, t('coffeeN'))
+    el('span', null, t('coffeeN')),
+    el('span', { class: 'coffee-form__summary' }, summaryText),
   );
 
   const copiesInput = el('input', {
@@ -186,13 +210,18 @@ function buildCoffeeForm(coffee, idx) {
     'data-i18n-title': 'removeCoffee',
     title:   t('removeCoffee'),
     'aria-label': t('removeCoffee'),
-    onclick: () => {
+    onclick: (e) => {
+      e.stopPropagation();   // don't trigger header expand when clicking trash
       const i = state.coffees.indexOf(coffee);
       if (i < 0) return;
       const removedId = coffee.id;
       state.coffees.splice(i, 1);
       if (state.coffees.length === 0) state.coffees.push(blankCoffee());
       if (state.previewSelection === removedId) state.previewSelection = 'all';
+      // If the removed coffee was active, activate the nearest remaining one
+      if (state.activeCoffeeId === removedId) {
+        state.activeCoffeeId = state.coffees[Math.max(0, i - 1)]?.id ?? state.coffees[0]?.id;
+      }
       distributeCopies();
       saveState();
       renderFormPanels();
@@ -202,7 +231,14 @@ function buildCoffeeForm(coffee, idx) {
   }, svgIcon('trash'));
   if (state.coffees.length <= 1) removeBtn.disabled = true;
 
-  const head = el('header', { class: 'coffee-form__head' },
+  const headAttrs = { class: 'coffee-form__head' };
+  if (!isActive) {
+    headAttrs.role     = 'button';
+    headAttrs.tabindex = '0';
+    headAttrs.onclick  = activateForm;
+    headAttrs.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activateForm(); } };
+  }
+  const head = el('header', headAttrs,
     headerLeft,
     el('div', { class: 'coffee-form__head-right' },
       el('label', { class: 'copies-field' },
@@ -210,7 +246,8 @@ function buildCoffeeForm(coffee, idx) {
         copiesInput,
         el('span', { class: 'copies-field__suffix', 'data-i18n': 'of16' }, t('of16'))
       ),
-      removeBtn
+      removeBtn,
+      chevron,
     )
   );
 
@@ -266,7 +303,10 @@ function buildCoffeeForm(coffee, idx) {
   addField('flavor');
   addField('description', { textarea: true });
 
-  return el('section', { class: 'coffee-form', 'data-coffee-id': coffee.id }, head, fields);
+  return el('section', {
+    class: `coffee-form${isActive ? '' : ' is-collapsed'}`,
+    'data-coffee-id': coffee.id,
+  }, head, fields);
 }
 
 function updateCopiesSummary() {
@@ -472,10 +512,11 @@ function svgIcon(name) {
   svg.setAttribute('stroke-linecap', 'round');
   svg.setAttribute('stroke-linejoin', 'round');
   const paths = {
-    bean:  ['M7 14c0-3 3-5 5-5s5 2 5 5-3 5-5 5-5-2-5-5z', 'M12 9V4'],
-    trash: ['M3 6h18', 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2', 'M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14', 'M10 11v6', 'M14 11v6'],
-    plus:  ['M12 5v14', 'M5 12h14'],
-    pdf:   ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6', 'M9 14h6', 'M9 18h4'],
+    bean:    ['M7 14c0-3 3-5 5-5s5 2 5 5-3 5-5 5-5-2-5-5z', 'M12 9V4'],
+    trash:   ['M3 6h18', 'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2', 'M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14', 'M10 11v6', 'M14 11v6'],
+    plus:    ['M12 5v14', 'M5 12h14'],
+    pdf:     ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6', 'M9 14h6', 'M9 18h4'],
+    chevron: ['M6 9l6 6 6-6'],
   };
   for (const d of (paths[name] || [])) {
     const p = document.createElementNS(ns, 'path');
@@ -502,7 +543,9 @@ function init() {
 
   // Add coffee
   document.getElementById('add-coffee').addEventListener('click', () => {
-    state.coffees.push(blankCoffee());
+    const newCoffee = blankCoffee();
+    state.coffees.push(newCoffee);
+    state.activeCoffeeId = newCoffee.id;   // auto-expand the new form
     distributeCopies();
     saveState();
     renderFormPanels();
@@ -515,6 +558,7 @@ function init() {
     if (!confirm(t('confirmReset'))) return;
     state.coffees = [blankCoffee()];
     state.previewSelection = 'all';
+    state.activeCoffeeId   = state.coffees[0].id;
     saveState();
     renderFormPanels();
     renderPreviewSelector();
