@@ -812,7 +812,7 @@ textarea.field__input {
   overflow-wrap: break-word;
   hyphens: auto;
   white-space: pre-wrap;   /* preserve newlines the user typed in the textarea */
-  text-align: justify;
+  text-align: left;
 }
 .card__desc.is-empty { color: var(--label); opacity: 0.45; }
 
