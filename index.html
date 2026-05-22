@@ -27,22 +27,38 @@
         <button type="button" class="lang-btn" data-lang="cs" aria-pressed="false">CS</button>
       </div>
 
-      <button type="button" id="reset-all" class="btn btn--ghost" data-i18n="resetAll">Vymazať všetko</button>
-      <button type="button" id="print-btn" class="btn btn--secondary">
-        <span data-i18n="printBtn">Tlačiť</span>
-      </button>
-      <button type="button" id="export-pdf" class="btn btn--primary">
-        <span data-i18n="exportPdf">Exportovať PDF</span>
-      </button>
+      <div class="topbar__divider"></div>
 
-      <div class="poster-size" role="group" aria-label="Poster size">
-        <button type="button" class="poster-size__btn" data-poster-size="A4">A4</button>
-        <button type="button" class="poster-size__btn" data-poster-size="A5">A5</button>
-        <button type="button" class="poster-size__btn" data-poster-size="A6">A6</button>
+      <!-- Kartičky -->
+      <div class="topbar__group">
+        <span class="topbar__group-label">Kartičky</span>
+        <div class="topbar__group-actions">
+          <button type="button" id="reset-all" class="btn btn--ghost" data-i18n="resetAll">Vymazať všetko</button>
+          <button type="button" id="print-btn" class="btn btn--secondary">
+            <span data-i18n="printBtn">Tlačiť</span>
+          </button>
+          <button type="button" id="export-pdf" class="btn btn--primary">
+            <span data-i18n="exportPdf">Exportovať PDF</span>
+          </button>
+        </div>
       </div>
-      <button type="button" id="export-poster" class="btn btn--primary">
-        <span data-i18n="exportPoster">Exportovať plagát</span>
-      </button>
+
+      <div class="topbar__divider"></div>
+
+      <!-- Plagáty -->
+      <div class="topbar__group">
+        <span class="topbar__group-label">Plagát</span>
+        <div class="topbar__group-actions">
+          <div class="poster-size" role="group" aria-label="Poster size">
+            <button type="button" class="poster-size__btn" data-poster-size="A4">A4</button>
+            <button type="button" class="poster-size__btn" data-poster-size="A5">A5</button>
+            <button type="button" class="poster-size__btn" data-poster-size="A6">A6</button>
+          </div>
+          <button type="button" id="export-poster" class="btn btn--primary">
+            <span data-i18n="exportPoster">Exportovať plagát</span>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
