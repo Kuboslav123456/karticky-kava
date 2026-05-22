@@ -400,95 +400,117 @@ input, textarea, select { font: inherit; color: inherit; }
 .coffee-forms {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-}
-
-.coffee-form {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 14px 16px 16px;
-  box-shadow: 0 1px 3px rgba(60,40,20,0.04);
-}
-.coffee-form__head {
-  display: flex;
-  align-items: center;
   gap: 10px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--line-soft);
-}
-.coffee-form__title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-serif);
-  font-weight: 600;
-  font-size: 16px;
-  flex: 1;
-  min-width: 0;
-}
-.coffee-form__num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  background: var(--accent);
-  color: #FBF6EC;
-  border-radius: 999px;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 700;
-}
-.coffee-form__head-right {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 
-/* ── Roastery-grouped navigation ─────────────────────────── */
-.roastery-nav {
+/* ── Roastery sections ──────────────────────────────────── */
+.roastery-section {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(60,40,20,0.04);
 }
-.roastery-nav__group + .roastery-nav__group {
-  border-top: 1px solid var(--line-soft);
-}
-.roastery-nav__header {
-  padding: 7px 14px 5px;
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.1px;
-  text-transform: uppercase;
-  color: var(--label);
-  background: var(--surface-2);
-}
-.roastery-nav__header--unnamed {
-  opacity: 0.6;
-}
-.roastery-nav__item {
+
+/* Collapsible section header */
+.roastery-section__head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 12px 9px 16px;
+  padding: 9px 14px 9px 12px;
+  background: var(--surface-2);
   cursor: pointer;
+  user-select: none;
   transition: background 0.12s;
+}
+.roastery-section__head:hover { background: #ede4d7; }
+
+.roastery-section__chevron {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--label);
+  transition: transform 0.18s ease;
+}
+.roastery-section.is-collapsed .roastery-section__chevron {
+  transform: rotate(-90deg);
+}
+
+.roastery-section__name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.roastery-section__name--unnamed {
+  color: var(--label);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+}
+
+.roastery-section__count {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--label);
+  background: rgba(0,0,0,0.06);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+
+/* Section body — hidden when collapsed */
+.roastery-section__body { /* visible by default */ }
+.roastery-section.is-collapsed .roastery-section__body { display: none; }
+
+/* "Pridať pod X" inline add button */
+.roastery-section__add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 14px 8px 16px;
+  border: none;
+  border-top: 1px dashed var(--line);
+  background: transparent;
+  color: var(--label);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.12s, background 0.12s;
+}
+.roastery-section__add:hover { color: var(--accent); background: rgba(164,113,72,0.05); }
+.roastery-section__add svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+/* ── Coffee items inside a section ───────────────────────── */
+.coffee-item {
   border-top: 1px solid var(--line-soft);
 }
-.roastery-nav__group > .roastery-nav__item:first-child,
-.roastery-nav__header + .roastery-nav__item {
-  border-top: none;
+.coffee-item:first-child { border-top: none; }
+
+/* Bar row — shown always, clickable when not active */
+.coffee-item__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px 9px 16px;
+  transition: background 0.12s;
 }
-.roastery-nav__item:hover { background: var(--surface-2); }
-.roastery-nav__item.is-active {
-  background: rgba(164, 113, 72, 0.10);
-}
-.roastery-nav__dot {
+.coffee-item:not(.is-active) .coffee-item__bar { cursor: pointer; }
+.coffee-item:not(.is-active) .coffee-item__bar:hover { background: var(--surface-2); }
+.coffee-item.is-active .coffee-item__bar { background: rgba(164, 113, 72, 0.08); }
+
+.coffee-item__dot {
   flex-shrink: 0;
   width: 6px;
   height: 6px;
@@ -496,10 +518,9 @@ input, textarea, select { font: inherit; color: inherit; }
   background: var(--line);
   transition: background 0.12s;
 }
-.roastery-nav__item.is-active .roastery-nav__dot {
-  background: var(--accent);
-}
-.roastery-nav__item-name {
+.coffee-item.is-active .coffee-item__dot { background: var(--accent); }
+
+.coffee-item__bar-name {
   flex: 1;
   min-width: 0;
   font-size: 13.5px;
@@ -510,16 +531,14 @@ input, textarea, select { font: inherit; color: inherit; }
   text-overflow: ellipsis;
   transition: color 0.12s;
 }
-.roastery-nav__item.is-active .roastery-nav__item-name {
-  color: var(--ink);
-  font-weight: 600;
-}
-.roastery-nav__del {
+.coffee-item.is-active .coffee-item__bar-name { color: var(--ink); font-weight: 600; }
+
+.coffee-item__del {
   flex-shrink: 0;
   appearance: none;
   border: none;
   background: transparent;
-  padding: 3px;
+  padding: 4px;
   cursor: pointer;
   color: var(--label);
   opacity: 0;
@@ -527,12 +546,17 @@ input, textarea, select { font: inherit; color: inherit; }
   display: flex;
   align-items: center;
 }
-.roastery-nav__item:hover .roastery-nav__del,
-.roastery-nav__item.is-active .roastery-nav__del {
-  opacity: 0.55;
+.coffee-item__bar:hover .coffee-item__del,
+.coffee-item.is-active .coffee-item__del { opacity: 0.5; }
+.coffee-item__del:hover { opacity: 1 !important; color: #c0392b; }
+.coffee-item__del svg { width: 14px; height: 14px; }
+
+/* Embedded form — shown only for the active coffee */
+.coffee-item__form {
+  padding: 14px 16px 18px;
+  border-top: 1px solid var(--line-soft);
+  background: rgba(255,255,255,0.5);
 }
-.roastery-nav__del:hover { opacity: 1 !important; color: #c0392b; }
-.roastery-nav__del svg { width: 14px; height: 14px; }
 
 /* Copies input */
 .copies-field {

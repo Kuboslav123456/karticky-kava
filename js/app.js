@@ -33,7 +33,8 @@ const state = loadState() ?? {
   previewSelection: 'all',   // 'all' = mixed by copies; otherwise = coffee.id
   backOffsetX: 0,            // mm — duplex printer calibration
   backOffsetY: 0,            // mm
-  posterSize: 'A4',          // 'A4' or 'A5' for poster export
+  posterSize: 'A4',          // 'A4', 'A5' or 'A6' for poster export
+  collapsedRoasteries: [],   // roastery name strings whose section is collapsed
 };
 
 // Sanity-check after a localStorage load: keep schema forward-compatible.
@@ -48,6 +49,10 @@ state.previewSelection = state.coffees.find(c => c.id === state.previewSelection
 state.backOffsetX = clampOffset(state.backOffsetX);
 state.backOffsetY = clampOffset(state.backOffsetY);
 state.posterSize  = ['A4', 'A5', 'A6'].includes(state.posterSize) ? state.posterSize : 'A4';
+// Collapsed roastery sections — sanitize to array of strings
+state.collapsedRoasteries = Array.isArray(state.collapsedRoasteries)
+  ? state.collapsedRoasteries.filter(r => typeof r === 'string')
+  : [];
 // Active (expanded) coffee form — fall back to first coffee if saved id is gone
 state.activeCoffeeId = state.coffees.find(c => c.id === state.activeCoffeeId)
   ? state.activeCoffeeId
@@ -121,36 +126,19 @@ function applyLanguage() {
   }
 }
 
+// ── Left panel — roastery sections ───────────────────────
+// The left panel is a single scrollable list of roastery sections.
+// Each section has a collapsible header and contains coffee items.
+// Each coffee item has a click-bar (collapsed) or an embedded form (active).
+
 function renderFormPanels() {
+  if (!Array.isArray(state.collapsedRoasteries)) state.collapsedRoasteries = [];
   const host = document.getElementById('coffee-forms');
   host.replaceChildren();
-
-  // Compact roastery-grouped navigation at the top
-  const nav = el('div', { id: 'roastery-nav', class: 'roastery-nav' });
-  fillRoasteryNav(nav);
-  host.append(nav);
-
-  // Active coffee form (always expanded — selection happens via nav)
-  const activeCoffee = state.coffees.find(c => c.id === state.activeCoffeeId)
-    ?? state.coffees[0];
-  if (activeCoffee) {
-    const activeIdx = state.coffees.indexOf(activeCoffee);
-    host.append(buildCoffeeForm(activeCoffee, activeIdx));
-  }
+  groupCoffeesByRoastery().forEach(group => host.append(buildRoasterySection(group)));
 }
 
-// Re-render only the nav (called when roastery/blend text changes so we
-// don't lose focus by rebuilding the whole form).
-function renderRoasteryNav() {
-  const nav = document.getElementById('roastery-nav');
-  if (!nav) return;
-  nav.replaceChildren();
-  fillRoasteryNav(nav);
-}
-
-// Populate a roastery-nav element with grouped coffee items.
-function fillRoasteryNav(nav) {
-  // Group coffees by roastery name (empty = unnamed group)
+function groupCoffeesByRoastery() {
   const groups = [];
   state.coffees.forEach((coffee, idx) => {
     const key = (coffee.roastery || '').trim();
@@ -158,67 +146,124 @@ function fillRoasteryNav(nav) {
     if (!group) { group = { roastery: key, items: [] }; groups.push(group); }
     group.items.push({ coffee, idx });
   });
+  return groups;
+}
 
-  const hasNamedGroups = groups.some(g => g.roastery !== '');
+function buildRoasterySection(group) {
+  if (!Array.isArray(state.collapsedRoasteries)) state.collapsedRoasteries = [];
+  const isCollapsed = state.collapsedRoasteries.includes(group.roastery);
 
-  groups.forEach(group => {
-    const groupEl = el('div', { class: 'roastery-nav__group' });
-
-    if (group.roastery) {
-      groupEl.append(el('div', { class: 'roastery-nav__header' }, group.roastery));
-    } else if (hasNamedGroups) {
-      // Unnamed coffees in a mixed list get a neutral label
-      groupEl.append(el('div', { class: 'roastery-nav__header roastery-nav__header--unnamed' },
-        state.lang === 'cs' ? '(bez pražírny)' : '(bez pražiarne)'));
+  const toggleCollapse = () => {
+    if (isCollapsed) {
+      state.collapsedRoasteries = state.collapsedRoasteries.filter(r => r !== group.roastery);
+    } else {
+      state.collapsedRoasteries = [...state.collapsedRoasteries, group.roastery];
     }
+    saveState();
+    renderFormPanels();
+  };
 
-    group.items.forEach(({ coffee, idx }) => {
-      const isActive  = coffee.id === state.activeCoffeeId;
-      const canDelete = state.coffees.length > 1;
-      const displayName = coffee.blend || `${t('coffeeN')} ${idx + 1}`;
+  const chevron = svgIcon('chevron');
+  chevron.classList.add('roastery-section__chevron');
 
-      const itemEl = el('div', {
-        class: `roastery-nav__item${isActive ? ' is-active' : ''}`,
-        onclick: () => {
-          if (state.activeCoffeeId === coffee.id) return;
-          state.activeCoffeeId   = coffee.id;
-          state.previewSelection = coffee.id;
-          saveState();
-          renderFormPanels();
-          renderPreview();
-        },
-      },
-        el('span', { class: 'roastery-nav__dot' }),
-        el('span', { class: 'roastery-nav__item-name' }, displayName),
-        canDelete
-          ? el('button', {
-              type: 'button',
-              class: 'roastery-nav__del',
-              title: t('removeCoffee'),
-              'aria-label': t('removeCoffee'),
-              onclick: (e) => {
-                e.stopPropagation();
-                const i = state.coffees.indexOf(coffee);
-                if (i < 0) return;
-                const removedId = coffee.id;
-                state.coffees.splice(i, 1);
-                if (state.activeCoffeeId === removedId) {
-                  state.activeCoffeeId = state.coffees[Math.max(0, i - 1)]?.id
-                    ?? state.coffees[0]?.id;
-                }
-                state.previewSelection = state.activeCoffeeId;
-                saveState();
-                renderFormPanels();
-                renderPreview();
-              },
-            }, svgIcon('trash'))
-          : null,
-      );
-      groupEl.append(itemEl);
-    });
+  const displayRoastery = group.roastery
+    || (state.lang === 'cs' ? '(bez pražírny)' : '(bez pražiarne)');
 
-    nav.append(groupEl);
-  });
+  const head = el('div', { class: 'roastery-section__head', onclick: toggleCollapse },
+    chevron,
+    el('span', { class: `roastery-section__name${group.roastery ? '' : ' roastery-section__name--unnamed'}` },
+      displayRoastery),
+    el('span', { class: 'roastery-section__count' }, String(group.items.length)),
+  );
+
+  const body = el('div', { class: 'roastery-section__body' });
+  group.items.forEach(({ coffee, idx }) => body.append(buildCoffeeItem(coffee, idx)));
+
+  // Inline "+ add under this roastery" button
+  const addLabel = group.roastery
+    ? `${t('addUnderRoastery')} ${group.roastery}`
+    : t('addCoffee').replace('+ ', '+ ');
+  const addBtn = el('button', { type: 'button', class: 'roastery-section__add',
+    onclick: () => {
+      const newCoffee = { ...blankCoffee(), roastery: group.roastery };
+      // Insert right after the last coffee of this group
+      const lastCoffee = group.items[group.items.length - 1].coffee;
+      const insertAt   = state.coffees.indexOf(lastCoffee) + 1;
+      state.coffees.splice(insertAt, 0, newCoffee);
+      state.activeCoffeeId   = newCoffee.id;
+      state.previewSelection = newCoffee.id;
+      // Ensure this section stays expanded
+      state.collapsedRoasteries = state.collapsedRoasteries.filter(r => r !== group.roastery);
+      saveState();
+      renderFormPanels();
+      renderPreview();
+      // Focus the blend field of the new form
+      setTimeout(() => {
+        document.getElementById(`${newCoffee.id}-blend`)?.focus();
+      }, 0);
+    },
+  }, svgIcon('plus'), ' ' + addLabel);
+  body.append(addBtn);
+
+  return el('section', {
+    class: `roastery-section${isCollapsed ? ' is-collapsed' : ''}`,
+    'data-roastery': group.roastery,
+  }, head, body);
+}
+
+function buildCoffeeItem(coffee, idx) {
+  const isActive  = coffee.id === state.activeCoffeeId;
+  const canDelete = state.coffees.length > 1;
+  const displayName = coffee.blend || `${t('coffeeN')} ${idx + 1}`;
+
+  const delBtn = canDelete ? el('button', {
+    type: 'button', class: 'coffee-item__del',
+    title: t('removeCoffee'), 'aria-label': t('removeCoffee'),
+    onclick: (e) => {
+      e.stopPropagation();
+      const i = state.coffees.indexOf(coffee);
+      if (i < 0) return;
+      state.coffees.splice(i, 1);
+      if (state.activeCoffeeId === coffee.id) {
+        state.activeCoffeeId = state.coffees[Math.max(0, i - 1)]?.id ?? state.coffees[0]?.id;
+      }
+      state.previewSelection = state.activeCoffeeId;
+      saveState();
+      renderFormPanels();
+      renderPreview();
+    },
+  }, svgIcon('trash')) : null;
+
+  const barAttrs = { class: 'coffee-item__bar' };
+  if (!isActive) {
+    barAttrs.onclick = () => {
+      state.activeCoffeeId   = coffee.id;
+      state.previewSelection = coffee.id;
+      // Auto-expand the section if it was collapsed
+      if (Array.isArray(state.collapsedRoasteries)) {
+        state.collapsedRoasteries = state.collapsedRoasteries.filter(
+          r => r !== (coffee.roastery || '').trim()
+        );
+      }
+      saveState();
+      renderFormPanels();
+      renderPreview();
+    };
+  }
+
+  const bar = el('div', barAttrs,
+    el('span', { class: 'coffee-item__dot' }),
+    el('span', { class: 'coffee-item__bar-name', 'data-coffee-bar': coffee.id }, displayName),
+    delBtn,
+  );
+
+  const item = el('div', {
+    class: `coffee-item${isActive ? ' is-active' : ''}`,
+    'data-coffee-id': coffee.id,
+  }, bar);
+
+  if (isActive) item.append(buildCoffeeForm(coffee, idx));
+  return item;
 }
 
 function buildCoffeeForm(coffee, idx) {
@@ -242,10 +287,29 @@ function buildCoffeeForm(coffee, idx) {
       oninput: e => {
         coffee[key] = e.target.value;
         saveState();
-        // Update nav labels without re-rendering the whole form (keeps focus)
-        if (key === 'roastery' || key === 'blend') renderRoasteryNav();
+        // Targeted DOM updates — keeps focus without full re-render
+        if (key === 'blend') {
+          const barName = document.querySelector(`[data-coffee-bar="${coffee.id}"]`);
+          if (barName) barName.textContent = coffee.blend || `${t('coffeeN')} ${idx + 1}`;
+        }
+        if (key === 'roastery') {
+          // Update section header text live while typing
+          const sectionEl = document.querySelector(`.coffee-item[data-coffee-id="${coffee.id}"]`)
+            ?.closest('.roastery-section');
+          if (sectionEl) {
+            const nameEl = sectionEl.querySelector('.roastery-section__name');
+            if (nameEl) nameEl.textContent = coffee.roastery
+              || (state.lang === 'cs' ? '(bez pražírny)' : '(bez pražiarne)');
+          }
+        }
         renderPreview();
       },
+      // Re-group sections on roastery blur (e.g. user changed "Goriffe" → "Rusty Nail")
+      // but only if focus leaves this coffee item entirely (so Tab between fields works).
+      onblur: key === 'roastery' ? (e) => {
+        const thisItem = document.querySelector(`.coffee-item[data-coffee-id="${coffee.id}"]`);
+        if (!thisItem?.contains(e.relatedTarget)) renderFormPanels();
+      } : null,
     };
 
     let inputEl;
@@ -262,7 +326,7 @@ function buildCoffeeForm(coffee, idx) {
 
   addField('roastery');
   {
-    const blendLabel = addField('blend');   // Názov kávy — viditeľné v plagátovom exporte
+    const blendLabel = addField('blend');   // Názov kávy — visible in poster export
     blendLabel.append(el('span', { class: 'field__hint', 'data-i18n': 'blendHint' }, t('blendHint')));
   }
   addField('country');
@@ -272,10 +336,7 @@ function buildCoffeeForm(coffee, idx) {
   addField('flavor');
   addField('description', { textarea: true });
 
-  return el('section', {
-    class: 'coffee-form',
-    'data-coffee-id': coffee.id,
-  }, fields);
+  return el('div', { class: 'coffee-item__form' }, fields);
 }
 
 
