@@ -554,13 +554,20 @@ function init() {
     });
     if (!selected?.length) return;
 
+    // Wait for all @font-face fonts (Tabac Sans) to finish loading before
+    // auto-fitting. If we measure with a fallback font, the sizes are wrong
+    // and text may overflow or look mis-formatted on the printout.
+    if (document.fonts?.ready) await document.fonts.ready;
+
     const origSelection = state.previewSelection;
     for (const id of selected) {
       state.previewSelection = id;
       renderPreview();
       if (_autoFitTimer) { clearTimeout(_autoFitTimer); _autoFitTimer = 0; }
       autoFitCards();
-      await new Promise(r => setTimeout(r, 0));
+      // Give the browser two frames to paint the final font sizes before
+      // opening the print dialog.
+      await new Promise(r => setTimeout(r, 50));
       window.print();
     }
     // Restore preview after printing.

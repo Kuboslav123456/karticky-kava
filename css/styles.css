@@ -1033,6 +1033,32 @@ textarea.field__input {
     print-color-adjust: exact;
   }
 
+  /* Cross-browser fix: flexbox on .card__inner can collapse .card__body to
+     height 0 in some print engines (Firefox, Edge, older Chrome), making
+     all text disappear via overflow:hidden.
+     Switch to block layout so the body height is determined by its content
+     and the logo footer sits absolutely at the card bottom. */
+  .card__inner {
+    display: block !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .card__body {
+    /* No flex sizing in print — height comes from content flow */
+    height: auto !important;
+    min-height: 0 !important;
+    /* Allow slight overflow rather than silently clipping text */
+    overflow: visible !important;
+  }
+  .card__foot {
+    /* Pin the logo to the card bottom regardless of body height */
+    position: absolute !important;
+    bottom: 4.5mm !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+  }
+
   /* Per-printer duplex calibration — shift the back sheet by the user's
      configured offset. With true @page margins the typical drift should
      be near zero, but keep the calibration available for fine tuning. */
