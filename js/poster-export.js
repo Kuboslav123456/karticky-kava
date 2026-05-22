@@ -50,6 +50,7 @@ const SRC = {
 const PAPER = {
   A4: { w: 210, h: 297 },
   A5: { w: 148, h: 210 },
+  A6: { w: 105, h: 148 },
 };
 
 // Scale + centring offsets so the A6 design fits A4 / A5 with margins.

@@ -47,7 +47,7 @@ state.previewSelection = state.coffees.find(c => c.id === state.previewSelection
   : state.activeCoffeeId ?? state.coffees[0]?.id;
 state.backOffsetX = clampOffset(state.backOffsetX);
 state.backOffsetY = clampOffset(state.backOffsetY);
-state.posterSize  = state.posterSize === 'A5' ? 'A5' : 'A4';
+state.posterSize  = ['A4', 'A5', 'A6'].includes(state.posterSize) ? state.posterSize : 'A4';
 // Active (expanded) coffee form — fall back to first coffee if saved id is gone
 state.activeCoffeeId = state.coffees.find(c => c.id === state.activeCoffeeId)
   ? state.activeCoffeeId
