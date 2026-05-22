@@ -738,16 +738,23 @@ function showSelectionModal({ title, confirmLabel }) {
     const checkboxes = [];
     const listEl = el('div', { class: 'sel-modal__list' });
     state.coffees.forEach((coffee, idx) => {
-      const cbId  = `_sel_${coffee.id}`;
-      const name  = coffee.roastery || coffee.blend || `${t('coffeeN')} ${idx + 1}`;
-      const cb    = el('input', { type: 'checkbox', id: cbId, value: coffee.id });
-      cb.checked  = coffee.id === state.activeCoffeeId;
+      const cbId   = `_sel_${coffee.id}`;
+      // Primary line: roastery (bold) or fallback
+      const primary = coffee.roastery || coffee.blend || `${t('coffeeN')} ${idx + 1}`;
+      // Secondary line: blend · country · process — only non-empty fields
+      const meta = [coffee.blend, coffee.country, coffee.process]
+        .filter(Boolean).join(' · ');
+      const cb = el('input', { type: 'checkbox', id: cbId, value: coffee.id });
+      cb.checked = coffee.id === state.activeCoffeeId;
       checkboxes.push(cb);
       listEl.append(
         el('label', { class: 'sel-modal__item', for: cbId },
           cb,
           el('span', { class: 'sel-modal__num' }, String(idx + 1)),
-          el('span', { class: 'sel-modal__name' }, name),
+          el('span', { class: 'sel-modal__info' },
+            el('span', { class: 'sel-modal__name' }, primary),
+            meta ? el('span', { class: 'sel-modal__meta' }, meta) : null,
+          ),
         )
       );
     });
