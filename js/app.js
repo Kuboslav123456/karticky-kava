@@ -5,6 +5,7 @@
 import { i18n, DEFAULT_LANG, LANGS } from './i18n.js';
 import { exportPdf, isPdfExportReady, preloadPdfAssets } from './pdf-export.js';
 import { exportPoster } from './poster-export.js';
+import { pushBackup, listBackups, getBackup } from './backup-db.js';
 
 // ── Constants ────────────────────────────────────────────
 const STORAGE_KEY = 'karticky-kava-state-v1';
@@ -75,6 +76,83 @@ function loadState() {
 function saveState() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch (e) { console.warn('localStorage save failed', e); }
+  scheduleBackup();
+}
+
+// Debounced IndexedDB auto-backup. Each saveState() bumps the timer; the
+// snapshot is committed once typing pauses for BACKUP_DEBOUNCE_MS.
+const BACKUP_DEBOUNCE_MS = 2500;
+let _backupTimer = 0;
+function scheduleBackup() {
+  clearTimeout(_backupTimer);
+  _backupTimer = setTimeout(async () => {
+    await pushBackup({
+      lang: state.lang,
+      coffees: state.coffees,
+      collapsedRoasteries: state.collapsedRoasteries,
+    });
+    // If the DB panel is open and showing the list, refresh it
+    if (document.getElementById('db-panel-body')?.hidden === false) {
+      refreshBackupVersions();
+    }
+  }, BACKUP_DEBOUNCE_MS);
+}
+
+function formatBackupTime(ts) {
+  const d = new Date(ts);
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  const time = d.toLocaleTimeString(state.lang === 'cs' ? 'cs-CZ' : 'sk-SK',
+    { hour: '2-digit', minute: '2-digit' });
+  if (sameDay) return time;
+  const date = d.toLocaleDateString(state.lang === 'cs' ? 'cs-CZ' : 'sk-SK',
+    { day: '2-digit', month: '2-digit' });
+  return `${date} ${time}`;
+}
+
+async function refreshBackupVersions() {
+  const host = document.getElementById('db-versions');
+  if (!host) return;
+  const items = await listBackups();
+  host.replaceChildren();
+  if (!items.length) {
+    host.append(el('li', { class: 'db-panel__versions-empty' }, t('versionsEmpty')));
+    return;
+  }
+  for (const item of items) {
+    const restoreBtn = el('button', {
+      type: 'button', class: 'db-panel__version-restore',
+      onclick: async () => {
+        if (!confirm(t('restoreConfirm'))) return;
+        const full = await getBackup(item.id);
+        if (!full?.snapshot?.coffees?.length) return;
+        // Snapshot current state for undo
+        const snapshot = {
+          coffees: state.coffees.map(c => ({ ...c })),
+          activeCoffeeId:   state.activeCoffeeId,
+          previewSelection: state.previewSelection,
+        };
+        state.coffees = full.snapshot.coffees.map(c => ({ ...blankCoffee(), ...c }));
+        state.activeCoffeeId   = state.coffees[0]?.id;
+        state.previewSelection = state.coffees[0]?.id;
+        state.collapsedRoasteries = [];
+        saveState();
+        renderFormPanels();
+        renderPreview();
+        showToast(`${t('versionsTitle')}: ${formatBackupTime(item.ts)}`,
+          t('undo'), () => restoreSnapshot(snapshot));
+      },
+    }, t('restoreBtn'));
+
+    host.append(el('li', { class: 'db-panel__version' },
+      el('div', { class: 'db-panel__version-info' },
+        el('span', { class: 'db-panel__version-time' }, formatBackupTime(item.ts)),
+        el('span', { class: 'db-panel__version-meta' },
+          `${item.coffeeCount ?? 0} ${t('coffeesCount')}`),
+      ),
+      restoreBtn,
+    ));
+  }
 }
 
 // ── Helpers ──────────────────────────────────────────────
@@ -84,6 +162,49 @@ function buildCardList() {
     ?? state.coffees.find(c => c.id === state.activeCoffeeId)
     ?? state.coffees[0];
   return Array(CARDS_PER_SHEET).fill(picked ?? null);
+}
+
+// ── Toast (undo) ─────────────────────────────────────────
+// One-at-a-time toast notification. Used for "undo" affordances after
+// destructive actions (delete coffee, reset all). Auto-dismisses after
+// TOAST_DURATION ms unless the user clicks the action.
+const TOAST_DURATION = 8000;
+let _toastTimer = 0;
+
+function showToast(message, actionLabel, actionFn) {
+  // Reuse existing toast container if present
+  let host = document.getElementById('toast-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'toast-host';
+    host.className = 'toast-host';
+    document.body.appendChild(host);
+  }
+  host.replaceChildren();
+  clearTimeout(_toastTimer);
+
+  const dismiss = () => {
+    if (!host.firstChild) return;
+    host.firstChild.classList.add('toast--out');
+    setTimeout(() => host.replaceChildren(), 200);
+  };
+
+  const toast = el('div', { class: 'toast' },
+    el('span', { class: 'toast__msg' }, message),
+    actionLabel && actionFn
+      ? el('button', {
+          type: 'button', class: 'toast__action',
+          onclick: () => { actionFn(); dismiss(); },
+        }, actionLabel)
+      : null,
+    el('button', {
+      type: 'button', class: 'toast__close',
+      'aria-label': 'Close', title: 'Close',
+      onclick: dismiss,
+    }, svgIcon('close')),
+  );
+  host.append(toast);
+  _toastTimer = setTimeout(dismiss, TOAST_DURATION);
 }
 
 // Tiny DOM helper
@@ -131,11 +252,46 @@ function applyLanguage() {
 // Each section has a collapsible header and contains coffee items.
 // Each coffee item has a click-bar (collapsed) or an embedded form (active).
 
+// In-memory only; never persisted. Reset on reload.
+let _searchQuery = '';
+
+function coffeeMatchesSearch(coffee, q) {
+  if (!q) return true;
+  const haystack = [
+    coffee.roastery, coffee.blend, coffee.country, coffee.region,
+    coffee.process, coffee.roast, coffee.flavor, coffee.description,
+  ].join(' ').toLowerCase();
+  return haystack.includes(q);
+}
+
 function renderFormPanels() {
   if (!Array.isArray(state.collapsedRoasteries)) state.collapsedRoasteries = [];
   const host = document.getElementById('coffee-forms');
   host.replaceChildren();
-  groupCoffeesByRoastery().forEach(group => host.append(buildRoasterySection(group)));
+
+  const q = _searchQuery.trim().toLowerCase();
+  const groups = groupCoffeesByRoastery();
+
+  if (q) {
+    // Build sections only for groups that have at least one matching coffee.
+    // The whole group is shown if the roastery name itself matches.
+    let anyMatch = false;
+    groups.forEach(group => {
+      const roasteryMatches = (group.roastery || '').toLowerCase().includes(q);
+      const filtered = roasteryMatches
+        ? group.items
+        : group.items.filter(({ coffee }) => coffeeMatchesSearch(coffee, q));
+      if (!filtered.length) return;
+      anyMatch = true;
+      host.append(buildRoasterySection({ ...group, items: filtered }, { forceExpanded: true }));
+    });
+    if (!anyMatch) {
+      host.append(el('div', { class: 'form-search__empty' },
+        state.lang === 'cs' ? 'Žádné výsledky.' : 'Žiadne výsledky.'));
+    }
+  } else {
+    groups.forEach(group => host.append(buildRoasterySection(group)));
+  }
 }
 
 function groupCoffeesByRoastery() {
@@ -149,9 +305,11 @@ function groupCoffeesByRoastery() {
   return groups;
 }
 
-function buildRoasterySection(group) {
+function buildRoasterySection(group, opts = {}) {
   if (!Array.isArray(state.collapsedRoasteries)) state.collapsedRoasteries = [];
-  const isCollapsed = state.collapsedRoasteries.includes(group.roastery);
+  const isCollapsed = opts.forceExpanded
+    ? false
+    : state.collapsedRoasteries.includes(group.roastery);
 
   const toggleCollapse = () => {
     if (isCollapsed) {
@@ -211,26 +369,79 @@ function buildRoasterySection(group) {
   }, head, body);
 }
 
+function duplicateCoffee(coffee) {
+  const i = state.coffees.indexOf(coffee);
+  if (i < 0) return;
+  // Deep-copy fields but generate a fresh id
+  const clone = { ...coffee, id: cryptoRandomId() };
+  state.coffees.splice(i + 1, 0, clone);
+  state.activeCoffeeId   = clone.id;
+  state.previewSelection = clone.id;
+  // Make sure this roastery section stays expanded
+  state.collapsedRoasteries = state.collapsedRoasteries.filter(
+    r => r !== (clone.roastery || '').trim()
+  );
+  saveState();
+  renderFormPanels();
+  renderPreview();
+  // Focus the blend field of the new clone (most likely thing to change)
+  setTimeout(() => {
+    const blendInput = document.getElementById(`${clone.id}-blend`);
+    if (blendInput) { blendInput.focus(); blendInput.select(); }
+  }, 0);
+}
+
+function deleteCoffee(coffee) {
+  const i = state.coffees.indexOf(coffee);
+  if (i < 0) return;
+  // Snapshot for undo
+  const snapshot = {
+    coffees: state.coffees.map(c => ({ ...c })),
+    activeCoffeeId:   state.activeCoffeeId,
+    previewSelection: state.previewSelection,
+  };
+  state.coffees.splice(i, 1);
+  if (!state.coffees.length) state.coffees.push(blankCoffee());
+  if (state.activeCoffeeId === coffee.id) {
+    state.activeCoffeeId = state.coffees[Math.max(0, i - 1)]?.id ?? state.coffees[0]?.id;
+  }
+  state.previewSelection = state.activeCoffeeId;
+  saveState();
+  renderFormPanels();
+  renderPreview();
+  showToast(`${t('coffeeDeleted')}: ${coffee.blend || coffee.roastery || t('coffeeN')}`, t('undo'),
+    () => restoreSnapshot(snapshot));
+}
+
+function restoreSnapshot(snapshot) {
+  state.coffees          = snapshot.coffees.map(c => ({ ...c }));
+  state.activeCoffeeId   = snapshot.activeCoffeeId;
+  state.previewSelection = snapshot.previewSelection;
+  saveState();
+  renderFormPanels();
+  renderPreview();
+}
+
 function buildCoffeeItem(coffee, idx) {
   const isActive  = coffee.id === state.activeCoffeeId;
   const canDelete = state.coffees.length > 1;
   const displayName = coffee.blend || `${t('coffeeN')} ${idx + 1}`;
+
+  const dupBtn = el('button', {
+    type: 'button', class: 'coffee-item__dup',
+    title: t('duplicateCoffee'), 'aria-label': t('duplicateCoffee'),
+    onclick: (e) => {
+      e.stopPropagation();
+      duplicateCoffee(coffee);
+    },
+  }, svgIcon('copy'));
 
   const delBtn = canDelete ? el('button', {
     type: 'button', class: 'coffee-item__del',
     title: t('removeCoffee'), 'aria-label': t('removeCoffee'),
     onclick: (e) => {
       e.stopPropagation();
-      const i = state.coffees.indexOf(coffee);
-      if (i < 0) return;
-      state.coffees.splice(i, 1);
-      if (state.activeCoffeeId === coffee.id) {
-        state.activeCoffeeId = state.coffees[Math.max(0, i - 1)]?.id ?? state.coffees[0]?.id;
-      }
-      state.previewSelection = state.activeCoffeeId;
-      saveState();
-      renderFormPanels();
-      renderPreview();
+      deleteCoffee(coffee);
     },
   }, svgIcon('trash')) : null;
 
@@ -254,6 +465,7 @@ function buildCoffeeItem(coffee, idx) {
   const bar = el('div', barAttrs,
     el('span', { class: 'coffee-item__dot' }),
     el('span', { class: 'coffee-item__bar-name', 'data-coffee-bar': coffee.id }, displayName),
+    dupBtn,
     delBtn,
   );
 
@@ -502,6 +714,11 @@ function svgIcon(name) {
     plus:    ['M12 5v14', 'M5 12h14'],
     pdf:     ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z', 'M14 2v6h6', 'M9 14h6', 'M9 18h4'],
     chevron: ['M6 9l6 6 6-6'],
+    copy:    ['M9 4h8a2 2 0 0 1 2 2v10', 'M5 8h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z'],
+    search:  ['M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z', 'M21 21l-5-5'],
+    close:   ['M6 6l12 12', 'M6 18L18 6'],
+    history: ['M3 12a9 9 0 1 0 3-6.7', 'M3 4v5h5', 'M12 8v5l3 2'],
+    restore: ['M3 12a9 9 0 1 0 3-6.7', 'M3 4v5h5'],
   };
   for (const d of (paths[name] || [])) {
     const p = document.createElementNS(ns, 'path');
@@ -526,6 +743,27 @@ function init() {
     });
   }
 
+  // Search / filter
+  const searchInput = document.getElementById('form-search-input');
+  const searchWrap  = document.getElementById('form-search');
+  const searchClear = document.getElementById('form-search-clear');
+  if (searchInput && searchWrap && searchClear) {
+    const apply = () => {
+      _searchQuery = searchInput.value;
+      searchWrap.classList.toggle('is-active', _searchQuery.length > 0);
+      renderFormPanels();
+    };
+    searchInput.addEventListener('input', apply);
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && searchInput.value) {
+        searchInput.value = ''; apply();
+      }
+    });
+    searchClear.addEventListener('click', () => {
+      searchInput.value = ''; apply(); searchInput.focus();
+    });
+  }
+
   // Add coffee
   document.getElementById('add-coffee').addEventListener('click', () => {
     const newCoffee = blankCoffee();
@@ -540,12 +778,20 @@ function init() {
   // Reset
   document.getElementById('reset-all').addEventListener('click', () => {
     if (!confirm(t('confirmReset'))) return;
+    // Snapshot before wiping so user can undo
+    const snapshot = {
+      coffees: state.coffees.map(c => ({ ...c })),
+      activeCoffeeId:   state.activeCoffeeId,
+      previewSelection: state.previewSelection,
+    };
     state.coffees = [blankCoffee()];
     state.activeCoffeeId   = state.coffees[0].id;
     state.previewSelection = state.coffees[0].id;
+    state.collapsedRoasteries = [];
     saveState();
     renderFormPanels();
     renderPreview();
+    showToast(t('allReset'), t('undo'), () => restoreSnapshot(snapshot));
   });
 
   // Export PDF — shows a coffee-selection modal, then generates one PDF per
@@ -687,6 +933,8 @@ function init() {
       dbBody.hidden = !open;
       dbToggle.setAttribute('aria-expanded', String(open));
       dbToggle.closest('.db-panel')?.classList.toggle('is-open', open);
+      // Lazy-load backup list when opening
+      if (open) refreshBackupVersions();
     };
     dbToggle.addEventListener('click', toggle);
     dbToggle.addEventListener('keydown', e => {

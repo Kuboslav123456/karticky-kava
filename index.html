@@ -65,6 +65,24 @@
   <main class="app-grid">
     <!-- ── LEFT: form pane ─────────────────────────────── -->
     <section class="form-pane" aria-label="Form">
+      <div class="form-search" id="form-search">
+        <svg class="form-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14z"/>
+          <path d="M21 21l-5-5"/>
+        </svg>
+        <input id="form-search-input" type="search" class="form-search__input"
+               data-i18n-ph="searchPh" placeholder="Hľadať pražiareň, kávu…"
+               autocomplete="off" spellcheck="false" />
+        <button type="button" id="form-search-clear" class="form-search__clear"
+                aria-label="Clear search" title="Clear">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 6l12 12"/><path d="M6 18L18 6"/>
+          </svg>
+        </button>
+      </div>
+
       <div id="coffee-forms" class="coffee-forms"></div>
 
       <div class="form-pane__actions">
@@ -98,6 +116,9 @@
             </button>
           </div>
           <input type="file" id="import-db-file" accept=".json" hidden>
+
+          <h4 class="db-panel__sub-title" data-i18n="versionsTitle">Automatické verzie</h4>
+          <ul id="db-versions" class="db-panel__versions" aria-live="polite"></ul>
         </div>
       </div>
     </section>
