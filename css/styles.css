@@ -691,8 +691,15 @@ textarea.field__input {
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
-  /* Pin to the very bottom of the form pane */
+  /* Pin to the very bottom of the form pane in document flow… */
   margin-top: auto;
+  /* …but also stick to the bottom of the viewport so it's visible
+     on the initial screen even when the preview pane is much taller. */
+  position: sticky;
+  bottom: 24px;
+  z-index: 5;
+  background: var(--surface);
+  box-shadow: 0 6px 24px rgba(40, 24, 10, 0.08);
 }
 .db-panel__head {
   display: flex;
