@@ -678,6 +678,70 @@ function init() {
   }
   updatePosterSizeUI();
 
+  // ── DB panel toggle ──────────────────────────────────────
+  const dbToggle = document.getElementById('db-panel-toggle');
+  const dbBody   = document.getElementById('db-panel-body');
+  if (dbToggle && dbBody) {
+    const toggle = () => {
+      const open = dbBody.hidden;
+      dbBody.hidden = !open;
+      dbToggle.setAttribute('aria-expanded', String(open));
+      dbToggle.closest('.db-panel')?.classList.toggle('is-open', open);
+    };
+    dbToggle.addEventListener('click', toggle);
+    dbToggle.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  }
+
+  // ── DB Export ────────────────────────────────────────────
+  document.getElementById('export-db')?.addEventListener('click', () => {
+    const payload = JSON.stringify({
+      version:  1,
+      exported: new Date().toISOString().slice(0, 10),
+      coffees:  state.coffees,
+    }, null, 2);
+    const blob = new Blob([payload], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `karticky-kava-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ── DB Import ────────────────────────────────────────────
+  const importBtn  = document.getElementById('import-db');
+  const importFile = document.getElementById('import-db-file');
+  importBtn?.addEventListener('click', () => importFile?.click());
+  importFile?.addEventListener('change', () => {
+    const file = importFile.files?.[0];
+    if (!file) return;
+    importFile.value = '';   // reset so the same file can be re-selected
+    const reader = new FileReader();
+    reader.onerror = () => alert(t('importErrorFile'));
+    reader.onload  = () => {
+      let parsed;
+      try { parsed = JSON.parse(reader.result); } catch {
+        alert(t('importErrorFmt')); return;
+      }
+      // Accept both { version, coffees: [...] } and a raw array
+      const coffees = Array.isArray(parsed) ? parsed
+        : Array.isArray(parsed?.coffees)    ? parsed.coffees
+        : null;
+      if (!coffees || !coffees.length) { alert(t('importErrorFmt')); return; }
+      if (!confirm(`${t('importConfirm')} (${coffees.length})`)) return;
+      state.coffees = coffees.map(c => ({ ...blankCoffee(), ...c }));
+      state.activeCoffeeId   = state.coffees[0]?.id;
+      state.previewSelection = state.coffees[0]?.id;
+      state.collapsedRoasteries = [];
+      saveState();
+      renderFormPanels();
+      renderPreview();
+    };
+    reader.readAsText(file);
+  });
+
   applyBackOffsetVars();
 
   applyLanguage();

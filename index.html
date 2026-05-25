@@ -73,7 +73,32 @@
         </button>
 
         <p class="autosave-hint" data-i18n="autoSaved">Automaticky uložené</p>
+      </div>
 
+      <!-- ── Import / Export databázy ───────────────────── -->
+      <div class="db-panel">
+        <div class="db-panel__head" id="db-panel-toggle" role="button" tabindex="0"
+             aria-expanded="false" aria-controls="db-panel-body">
+          <svg class="db-panel__chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+          <span data-i18n="dbPanel">Databáza</span>
+        </div>
+        <div class="db-panel__body" id="db-panel-body" hidden>
+          <p class="db-panel__desc" data-i18n="dbPanelDesc">
+            Záloha všetkých kartičiek vo formáte JSON.
+          </p>
+          <div class="db-panel__actions">
+            <button type="button" id="export-db" class="btn btn--secondary">
+              <span data-i18n="exportDb">↓ Exportovať</span>
+            </button>
+            <button type="button" id="import-db" class="btn btn--ghost">
+              <span data-i18n="importDb">↑ Importovať</span>
+            </button>
+          </div>
+          <input type="file" id="import-db-file" accept=".json" hidden>
+        </div>
       </div>
     </section>
 

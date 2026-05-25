@@ -684,6 +684,65 @@ textarea.field__input {
   text-transform: uppercase;
 }
 
+/* ── DB import / export panel ────────────────────────────── */
+.db-panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.db-panel__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+  letter-spacing: 0.2px;
+  background: var(--surface);
+  transition: background 0.12s, color 0.12s;
+}
+.db-panel__head:hover {
+  background: var(--surface-hover, rgba(164,113,72,0.05));
+  color: var(--ink);
+}
+.db-panel__chevron {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--label);
+  transition: transform 0.2s ease;
+}
+.db-panel.is-open .db-panel__chevron {
+  transform: rotate(180deg);
+}
+.db-panel__body {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.db-panel__desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--label);
+  line-height: 1.5;
+}
+.db-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+.db-panel__actions .btn {
+  flex: 1;
+  font-size: 13px;
+  padding: 7px 12px;
+}
+
 /* ── Selection modal ─────────────────────────────────────── */
 .sel-modal-overlay {
   position: fixed;

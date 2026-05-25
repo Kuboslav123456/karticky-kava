@@ -65,6 +65,16 @@ export const i18n = {
     exporting:  "Pripravujem PDF…",
     exportDone: "Hotovo",
     exportFail: "PDF export zlyhal",
+
+    // DB import / export
+    dbPanel:         "Databáza",
+    dbPanelDesc:     "Záloha všetkých kartičiek vo formáte JSON.",
+    exportDb:        "↓ Exportovať",
+    importDb:        "↑ Importovať",
+    importConfirm:   "Importom sa prepíšu všetky aktuálne kávy. Pokračovať?",
+    importErrorFile: "Súbor sa nepodarilo načítať.",
+    importErrorFmt:  "Súbor nie je platný export kartičiek.",
+    importSuccess:   "Importovaných káv:",
   },
 
   cs: {
@@ -124,6 +134,16 @@ export const i18n = {
     exporting:  "Připravuji PDF…",
     exportDone: "Hotovo",
     exportFail: "Export PDF selhal",
+
+    // DB import / export
+    dbPanel:         "Databáze",
+    dbPanelDesc:     "Záloha všech kartiček ve formátu JSON.",
+    exportDb:        "↓ Exportovat",
+    importDb:        "↑ Importovat",
+    importConfirm:   "Import přepíše všechny aktuální kávy. Pokračovat?",
+    importErrorFile: "Soubor se nepodařilo načíst.",
+    importErrorFmt:  "Soubor není platný export kartiček.",
+    importSuccess:   "Importováno káv:",
   },
 };
 
