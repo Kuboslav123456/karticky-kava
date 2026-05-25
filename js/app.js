@@ -5,7 +5,6 @@
 import { i18n, DEFAULT_LANG, LANGS } from './i18n.js';
 import { exportPdf, isPdfExportReady, preloadPdfAssets } from './pdf-export.js';
 import { exportPoster } from './poster-export.js';
-import { pushBackup, listBackups, getBackup } from './backup-db.js';
 
 // ── Constants ────────────────────────────────────────────
 const STORAGE_KEY = 'karticky-kava-state-v1';
@@ -76,83 +75,6 @@ function loadState() {
 function saveState() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch (e) { console.warn('localStorage save failed', e); }
-  scheduleBackup();
-}
-
-// Debounced IndexedDB auto-backup. Each saveState() bumps the timer; the
-// snapshot is committed once typing pauses for BACKUP_DEBOUNCE_MS.
-const BACKUP_DEBOUNCE_MS = 2500;
-let _backupTimer = 0;
-function scheduleBackup() {
-  clearTimeout(_backupTimer);
-  _backupTimer = setTimeout(async () => {
-    await pushBackup({
-      lang: state.lang,
-      coffees: state.coffees,
-      collapsedRoasteries: state.collapsedRoasteries,
-    });
-    // If the DB panel is open and showing the list, refresh it
-    if (document.getElementById('db-panel-body')?.hidden === false) {
-      refreshBackupVersions();
-    }
-  }, BACKUP_DEBOUNCE_MS);
-}
-
-function formatBackupTime(ts) {
-  const d = new Date(ts);
-  const today = new Date();
-  const sameDay = d.toDateString() === today.toDateString();
-  const time = d.toLocaleTimeString(state.lang === 'cs' ? 'cs-CZ' : 'sk-SK',
-    { hour: '2-digit', minute: '2-digit' });
-  if (sameDay) return time;
-  const date = d.toLocaleDateString(state.lang === 'cs' ? 'cs-CZ' : 'sk-SK',
-    { day: '2-digit', month: '2-digit' });
-  return `${date} ${time}`;
-}
-
-async function refreshBackupVersions() {
-  const host = document.getElementById('db-versions');
-  if (!host) return;
-  const items = await listBackups();
-  host.replaceChildren();
-  if (!items.length) {
-    host.append(el('li', { class: 'db-panel__versions-empty' }, t('versionsEmpty')));
-    return;
-  }
-  for (const item of items) {
-    const restoreBtn = el('button', {
-      type: 'button', class: 'db-panel__version-restore',
-      onclick: async () => {
-        if (!confirm(t('restoreConfirm'))) return;
-        const full = await getBackup(item.id);
-        if (!full?.snapshot?.coffees?.length) return;
-        // Snapshot current state for undo
-        const snapshot = {
-          coffees: state.coffees.map(c => ({ ...c })),
-          activeCoffeeId:   state.activeCoffeeId,
-          previewSelection: state.previewSelection,
-        };
-        state.coffees = full.snapshot.coffees.map(c => ({ ...blankCoffee(), ...c }));
-        state.activeCoffeeId   = state.coffees[0]?.id;
-        state.previewSelection = state.coffees[0]?.id;
-        state.collapsedRoasteries = [];
-        saveState();
-        renderFormPanels();
-        renderPreview();
-        showToast(`${t('versionsTitle')}: ${formatBackupTime(item.ts)}`,
-          t('undo'), () => restoreSnapshot(snapshot));
-      },
-    }, t('restoreBtn'));
-
-    host.append(el('li', { class: 'db-panel__version' },
-      el('div', { class: 'db-panel__version-info' },
-        el('span', { class: 'db-panel__version-time' }, formatBackupTime(item.ts)),
-        el('span', { class: 'db-panel__version-meta' },
-          `${item.coffeeCount ?? 0} ${t('coffeesCount')}`),
-      ),
-      restoreBtn,
-    ));
-  }
 }
 
 // ── Helpers ──────────────────────────────────────────────
@@ -775,25 +697,6 @@ function init() {
     renderPreview();
   });
 
-  // Reset
-  document.getElementById('reset-all').addEventListener('click', () => {
-    if (!confirm(t('confirmReset'))) return;
-    // Snapshot before wiping so user can undo
-    const snapshot = {
-      coffees: state.coffees.map(c => ({ ...c })),
-      activeCoffeeId:   state.activeCoffeeId,
-      previewSelection: state.previewSelection,
-    };
-    state.coffees = [blankCoffee()];
-    state.activeCoffeeId   = state.coffees[0].id;
-    state.previewSelection = state.coffees[0].id;
-    state.collapsedRoasteries = [];
-    saveState();
-    renderFormPanels();
-    renderPreview();
-    showToast(t('allReset'), t('undo'), () => restoreSnapshot(snapshot));
-  });
-
   // Export PDF — shows a coffee-selection modal, then generates one PDF per
   // selected coffee. Reads per-card font-sizes from the DOM after re-rendering
   // so the PDF matches what the user sees in the preview.
@@ -933,8 +836,6 @@ function init() {
       dbBody.hidden = !open;
       dbToggle.setAttribute('aria-expanded', String(open));
       dbToggle.closest('.db-panel')?.classList.toggle('is-open', open);
-      // Lazy-load backup list when opening
-      if (open) refreshBackupVersions();
     };
     dbToggle.addEventListener('click', toggle);
     dbToggle.addEventListener('keydown', e => {
